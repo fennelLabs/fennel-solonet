@@ -9,9 +9,6 @@ RUN DEBIAN_FRONTEND=noninteractive \
     apt-get install clang libclang-dev libclang1 llvm llvm-dev clang-tools -y && \
     apt-get upgrade -y
 
-#RUN rustup update nightly
-#RUN rustup default nightly
-#RUN rustup target add wasm32-unknown-unknown --toolchain nightly
 RUN cargo install cargo-chef
 
 FROM base as planner
@@ -20,11 +17,13 @@ RUN cargo chef prepare --recipe-path recipe.json
 
 FROM base as builder
 COPY --from=planner /app/recipe.json recipe.json
+COPY --from=planner /app/fennelSpecRaw.json fennelSpecRaw.json
 RUN cargo chef cook --release --recipe-path recipe.json
 COPY . .
 RUN cargo build --release
 
 FROM base as runtime
 COPY --from=builder /app/target/release/fennel-node /app/fennel-node
+COPY --from=planner /app/fennelSpecRaw.json fennelSpecRaw.json
 RUN /app/fennel-node --version
 EXPOSE 9930 9333 9944 30333 30334
