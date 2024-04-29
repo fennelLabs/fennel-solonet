@@ -24,6 +24,9 @@ RUN cargo build --release
 
 FROM base as runtime
 COPY --from=builder /app/target/release/fennel-node /app/fennel-node
-COPY --from=planner /app/fennelSpecRaw.json fennelSpecRaw.json
+COPY --from=builder /app/fennelSpecRaw.json fennelSpecRaw.json
+COPY --from=builder /app/chain-init.sh chain-init.sh
+COPY --from=builder /app/peer-1-init.sh peer-1-init.sh
+COPY --from=builder /app/peer-2-init.sh peer-2-init.sh
 RUN /app/fennel-node --version
 EXPOSE 9930 9333 9944 30333 30334
