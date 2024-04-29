@@ -1,0 +1,3 @@
+/app/fennel-node key insert --key-type aura --base-path /app/peer --chain /app/fennelSpecRaw.json --scheme Sr25519 --suri "$peer1suri"
+/app/fennel-node key insert --key-type gran --base-path /app/peer --chain /app/fennelSpecRaw.json --scheme Ed25519 --suri "$peer1suri"
+/app/fennel-node --base-path /app/peer --chain /app/fennelSpecRaw.json --port 30334 --rpc-port 9946 --telemetry-url "wss://telemetry.polkadot.io/submit/ 0" --validator  --bootnodes /dns/chain/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp --rpc-cors all --prometheus-external --rpc-methods Unsafe --rpc-external
