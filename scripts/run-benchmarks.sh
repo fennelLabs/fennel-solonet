@@ -4,6 +4,7 @@ steps=$1
 repeat=$2
 
 pallets=(
+    pallet_sudo
     pallet_balances
     pallet_certificate
     pallet_identity
