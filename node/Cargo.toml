@@ -62,7 +62,7 @@ substrate-frame-rpc-system = { git = "https://github.com/paritytech/polkadot-sdk
 frame-benchmarking-cli = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2407" }
 
 # Local Dependencies
-fennel-node-runtime = { path = "../runtime" }
+fennel-node-runtime = { path = "../runtime/fennel" }
 
 # CLI-specific dependencies
 try-runtime-cli = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2407", optional = true }
