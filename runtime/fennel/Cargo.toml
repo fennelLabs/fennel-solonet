@@ -37,6 +37,7 @@ pallet-grandpa = { git = "https://github.com/paritytech/polkadot-sdk.git", tag =
 pallet-sudo = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2407", default-features = false }
 pallet-timestamp = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2407", default-features = false }
 pallet-transaction-payment = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2407", default-features = false }
+pallet-session = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2407", default-features = false }
 
 # primitives
 sp-api = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2407", default-features = false }
@@ -56,6 +57,7 @@ sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "po
 	"serde",
 ] }
 sp-session = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2407", default-features = false }
+sp-staking = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2407", default-features = false }
 sp-std = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2407", default-features = false }
 sp-storage = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2407", default-features = false }
 sp-transaction-pool = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2407", default-features = false }
@@ -74,12 +76,12 @@ frame-system-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk.
 
 polkadot-runtime-common = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2407", default-features = false }
 
-pallet-certificate = { path = "../pallets/certificate", default-features = false }
-pallet-identity = { path = "../pallets/identity", default-features = false }
-pallet-infostratus = { path = "../pallets/infostratus", default-features = false }
-pallet-keystore = { path = "../pallets/keystore", default-features = false }
-pallet-signal = { path = "../pallets/signal", default-features = false }
-pallet-trust = { path = "../pallets/trust", default-features = false }
+pallet-certificate = { path = "../../pallets/certificate", default-features = false }
+pallet-identity = { path = "../../pallets/identity", default-features = false }
+pallet-infostratus = { path = "../../pallets/infostratus", default-features = false }
+pallet-keystore = { path = "../../pallets/keystore", default-features = false }
+pallet-signal = { path = "../../pallets/signal", default-features = false }
+pallet-trust = { path = "../../pallets/trust", default-features = false }
 
 [build-dependencies]
 substrate-wasm-builder = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2407", optional = true }

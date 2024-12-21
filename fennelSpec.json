@@ -15,7 +15,8 @@
           "authorities": [
             "5GKakHxKvZKdL5RwFfaGJmKFxiEZWqbpuEWQDwqn7YqRh1f5",
             "5CLhqKE4HrTsmU9vbsWenDg7mkRrMXKyet1CNeuUx78i61fc",
-            "5FHFLLHr2hZA6pHV8whYrPefFk5KBZrLSphzHcPXE6Jxb3an"
+            "5FHFLLHr2hZA6pHV8whYrPefFk5KBZrLSphzHcPXE6Jxb3an",
+            "5HQ1hkDt2FVMumV4JPHZBmDXFerBLVFqLFGfj6cWSt265P1V"
           ]
         },
         "balances": {
@@ -35,6 +36,10 @@
             [
               "5DcVtYuLZ5Q6df1C4tqamRzFn3b3TadyxSUfGNW8LEaiSjLj",
               1152921504606846976
+            ],
+            [
+              "5HQ1hkDt2FVMumV4JPHZBmDXFerBLVFqLFGfj6cWSt265P1V",
+              1152921504606846976
             ]
           ]
         },
@@ -50,6 +55,10 @@
             ],
             [
               "5CXEqRcapZM2S1A3DV24Q2x9BYXro77HBMGSyFDLWSHsk5Xj",
+              1
+            ],
+            [
+              "5HNRYTr4mQsAZpta8fXcBjjtu3qJL66dpAKbSh35FUhSUTR4",
               1
             ]
           ]

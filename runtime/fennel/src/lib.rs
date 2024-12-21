@@ -42,6 +42,9 @@ use polkadot_runtime_common::SlowAdjustingFeeUpdate;
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 
+extern crate alloc;
+mod validator_manager;
+
 pub use pallet_certificate;
 pub use pallet_infostratus;
 pub use pallet_identity;
