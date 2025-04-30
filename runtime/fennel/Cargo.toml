@@ -37,7 +37,7 @@ pallet-grandpa = { git = "https://github.com/paritytech/polkadot-sdk.git", tag =
 pallet-sudo = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2407", default-features = false }
 pallet-timestamp = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2407", default-features = false }
 pallet-transaction-payment = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2407", default-features = false }
-pallet-session = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2407", default-features = false }
+pallet-session = { default-features = false, git = 'https://github.com/paritytech/polkadot-sdk.git', tag = "polkadot-stable2407", features = ["historical"] }
 
 # primitives
 sp-api = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2407", default-features = false }
@@ -82,6 +82,7 @@ pallet-infostratus = { path = "../../pallets/infostratus", default-features = fa
 pallet-keystore = { path = "../../pallets/keystore", default-features = false }
 pallet-signal = { path = "../../pallets/signal", default-features = false }
 pallet-trust = { path = "../../pallets/trust", default-features = false }
+pallet-validator-manager = { version = "0.1.0", default-features = false, path = "../../pallets/validator-manager" }
 
 [build-dependencies]
 substrate-wasm-builder = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2407", optional = true }
@@ -133,6 +134,7 @@ std = [
 	"sp-version/std",
 
 	"substrate-wasm-builder",
+	"pallet-validator-manager/std",
 ]
 
 runtime-benchmarks = [
@@ -152,6 +154,7 @@ runtime-benchmarks = [
 	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"polkadot-runtime-common/runtime-benchmarks",
+	"pallet-validator-manager/runtime-benchmarks",
 ]
 
 try-runtime = [

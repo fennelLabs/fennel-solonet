@@ -1,0 +1,51 @@
+[package]
+authors = ['Fennel Labs <https://github.com/fennelLabs>']
+description = 'FRAME pallet for managing validators on Fennel Solonet.'
+edition = '2021'
+homepage = 'https://fennellabs.com'
+license = 'Unlicense'
+name = 'pallet-validator-manager'
+repository = 'https://github.com/fennelLabs/fennel-protocol/'
+version = '0.1.0'
+
+[package.metadata.docs.rs]
+targets = ['x86_64-unknown-linux-gnu']
+
+[dependencies]
+scale-info = { version = "2.1", default-features = false, features = ["derive"] }
+codec = { default-features = false, features = ['derive', 'max-encoded-len'], package = 'parity-scale-codec', version = '3.1' }
+frame-benchmarking = { default-features = false, git = 'https://github.com/paritytech/polkadot-sdk.git', optional = true, tag = "polkadot-stable2407" }
+frame-support = { default-features = false, git = 'https://github.com/paritytech/polkadot-sdk.git', tag = "polkadot-stable2407" }
+frame-system = { default-features = false, git = 'https://github.com/paritytech/polkadot-sdk.git', tag = "polkadot-stable2407" }
+sp-runtime = { default-features = false, git = 'https://github.com/paritytech/polkadot-sdk.git', tag = "polkadot-stable2407" }
+sp-staking = { default-features = false, git = 'https://github.com/paritytech/polkadot-sdk.git', tag = "polkadot-stable2407" }
+sp-std = { default-features = false, git = 'https://github.com/paritytech/polkadot-sdk.git', tag = "polkadot-stable2407" }
+pallet-session = { default-features = false, git = 'https://github.com/paritytech/polkadot-sdk.git', tag = "polkadot-stable2407", features = ["historical"] }
+log = { version = "0.4.17", default-features = false }
+
+[dev-dependencies]
+sp-core = { default-features = false, git = 'https://github.com/paritytech/polkadot-sdk.git', tag = "polkadot-stable2407" }
+sp-io = { default-features = false, git = 'https://github.com/paritytech/polkadot-sdk.git', tag = "polkadot-stable2407" }
+serde = { version = "1.0", features = ["derive"] }
+
+[features]
+default = ['std']
+runtime-benchmarks = [
+    'frame-benchmarking/runtime-benchmarks',
+    'frame-support/runtime-benchmarks',
+    'frame-system/runtime-benchmarks',
+    'sp-runtime/runtime-benchmarks'
+]
+std = [
+    'codec/std',
+    'frame-support/std',
+    'frame-system/std',
+    'frame-benchmarking/std',
+    'scale-info/std',
+    'sp-runtime/std',
+    'sp-staking/std',
+    'sp-std/std',
+    'pallet-session/std',
+    'log/std',
+]
+try-runtime = ['frame-support/try-runtime', 'frame-system/try-runtime'] 

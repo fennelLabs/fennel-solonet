@@ -22,179 +22,179 @@
 
 use core::marker::PhantomData;
 use frame_support::{
-	traits::Get,
-	weights::{constants::RocksDbWeight, Weight},
+    traits::Get,
+    weights::{constants::RocksDbWeight, Weight},
 };
 
 /// Weight functions needed for pallet_keystore.
 pub trait WeightInfo {
-	fn announce_key() -> Weight;
-	fn announce_a_whole_lotta_keys() -> Weight;
-	fn announce_key_with_long_vectors() -> Weight;
-	fn announce_a_bunch_of_long_keys() -> Weight;
-	fn revoke_key() -> Weight;
-	fn revoke_one_of_many_keys() -> Weight;
-	fn issue_encryption_key() -> Weight;
-	fn issue_a_ton_of_encryption_keys() -> Weight;
+    fn announce_key() -> Weight;
+    fn announce_a_whole_lotta_keys() -> Weight;
+    fn announce_key_with_long_vectors() -> Weight;
+    fn announce_a_bunch_of_long_keys() -> Weight;
+    fn revoke_key() -> Weight;
+    fn revoke_one_of_many_keys() -> Weight;
+    fn issue_encryption_key() -> Weight;
+    fn issue_a_ton_of_encryption_keys() -> Weight;
 }
 
 /// Weights for pallet_keystore using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
-	/// Storage: `Keystore::IssuedKeys` (r:1 w:1)
-	/// Proof: `Keystore::IssuedKeys` (`max_values`: None, `max_size`: Some(2116), added: 4591,
-	/// mode: `MaxEncodedLen`)
-	fn announce_key() -> Weight {
-		Weight::from_parts(11_000_000, 5581)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
-	}
-	/// Storage: `Keystore::IssuedKeys` (r:1 w:1)
-	/// Proof: `Keystore::IssuedKeys` (`max_values`: None, `max_size`: Some(2116), added: 4591,
-	/// mode: `MaxEncodedLen`)
-	fn announce_a_whole_lotta_keys() -> Weight {
-		Weight::from_parts(50_000_000, 5581)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
-	}
-	/// Storage: `Keystore::IssuedKeys` (r:1 w:1)
-	/// Proof: `Keystore::IssuedKeys` (`max_values`: None, `max_size`: Some(2116), added: 4591,
-	/// mode: `MaxEncodedLen`)
-	fn announce_key_with_long_vectors() -> Weight {
-		Weight::from_parts(16_000_000, 5581)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
-	}
-	/// Storage: `Keystore::IssuedKeys` (r:1 w:1)
-	/// Proof: `Keystore::IssuedKeys` (`max_values`: None, `max_size`: Some(2116), added: 4591,
-	/// mode: `MaxEncodedLen`)
-	fn announce_a_bunch_of_long_keys() -> Weight {
-		Weight::from_parts(58_000_000, 5581)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
-	}
-	/// Storage: `Keystore::IssuedKeys` (r:1 w:1)
-	/// Proof: `Keystore::IssuedKeys` (`max_values`: None, `max_size`: Some(2116), added: 4591,
-	/// mode: `MaxEncodedLen`)
-	fn revoke_key() -> Weight {
-		Weight::from_parts(13_000_000, 5581)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
-	}
-	/// Storage: `Keystore::IssuedKeys` (r:1 w:1)
-	/// Proof: `Keystore::IssuedKeys` (`max_values`: None, `max_size`: Some(2116), added: 4591,
-	/// mode: `MaxEncodedLen`)
-	fn revoke_one_of_many_keys() -> Weight {
-		Weight::from_parts(51_000_000, 5581)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
-	}
-	/// Storage: `Keystore::IssuedEncryptionKeys` (r:0 w:1)
-	/// Proof: `Keystore::IssuedEncryptionKeys` (`max_values`: None, `max_size`: Some(80), added:
-	/// 2555, mode: `MaxEncodedLen`)
-	fn issue_encryption_key() -> Weight {
-		Weight::from_parts(8_000_000, 0).saturating_add(T::DbWeight::get().writes(1_u64))
-	}
-	/// Storage: `Keystore::IssuedEncryptionKeys` (r:0 w:1)
-	/// Proof: `Keystore::IssuedEncryptionKeys` (`max_values`: None, `max_size`: Some(80), added:
-	/// 2555, mode: `MaxEncodedLen`)
-	fn issue_a_ton_of_encryption_keys() -> Weight {
-		Weight::from_parts(18_000_000, 0).saturating_add(T::DbWeight::get().writes(1_u64))
-	}
+    /// Storage: `Keystore::IssuedKeys` (r:1 w:1)
+    /// Proof: `Keystore::IssuedKeys` (`max_values`: None, `max_size`: Some(2116), added: 4591,
+    /// mode: `MaxEncodedLen`)
+    fn announce_key() -> Weight {
+        Weight::from_parts(11_000_000, 5581)
+            .saturating_add(T::DbWeight::get().reads(1_u64))
+            .saturating_add(T::DbWeight::get().writes(1_u64))
+    }
+    /// Storage: `Keystore::IssuedKeys` (r:1 w:1)
+    /// Proof: `Keystore::IssuedKeys` (`max_values`: None, `max_size`: Some(2116), added: 4591,
+    /// mode: `MaxEncodedLen`)
+    fn announce_a_whole_lotta_keys() -> Weight {
+        Weight::from_parts(50_000_000, 5581)
+            .saturating_add(T::DbWeight::get().reads(1_u64))
+            .saturating_add(T::DbWeight::get().writes(1_u64))
+    }
+    /// Storage: `Keystore::IssuedKeys` (r:1 w:1)
+    /// Proof: `Keystore::IssuedKeys` (`max_values`: None, `max_size`: Some(2116), added: 4591,
+    /// mode: `MaxEncodedLen`)
+    fn announce_key_with_long_vectors() -> Weight {
+        Weight::from_parts(16_000_000, 5581)
+            .saturating_add(T::DbWeight::get().reads(1_u64))
+            .saturating_add(T::DbWeight::get().writes(1_u64))
+    }
+    /// Storage: `Keystore::IssuedKeys` (r:1 w:1)
+    /// Proof: `Keystore::IssuedKeys` (`max_values`: None, `max_size`: Some(2116), added: 4591,
+    /// mode: `MaxEncodedLen`)
+    fn announce_a_bunch_of_long_keys() -> Weight {
+        Weight::from_parts(58_000_000, 5581)
+            .saturating_add(T::DbWeight::get().reads(1_u64))
+            .saturating_add(T::DbWeight::get().writes(1_u64))
+    }
+    /// Storage: `Keystore::IssuedKeys` (r:1 w:1)
+    /// Proof: `Keystore::IssuedKeys` (`max_values`: None, `max_size`: Some(2116), added: 4591,
+    /// mode: `MaxEncodedLen`)
+    fn revoke_key() -> Weight {
+        Weight::from_parts(13_000_000, 5581)
+            .saturating_add(T::DbWeight::get().reads(1_u64))
+            .saturating_add(T::DbWeight::get().writes(1_u64))
+    }
+    /// Storage: `Keystore::IssuedKeys` (r:1 w:1)
+    /// Proof: `Keystore::IssuedKeys` (`max_values`: None, `max_size`: Some(2116), added: 4591,
+    /// mode: `MaxEncodedLen`)
+    fn revoke_one_of_many_keys() -> Weight {
+        Weight::from_parts(51_000_000, 5581)
+            .saturating_add(T::DbWeight::get().reads(1_u64))
+            .saturating_add(T::DbWeight::get().writes(1_u64))
+    }
+    /// Storage: `Keystore::IssuedEncryptionKeys` (r:0 w:1)
+    /// Proof: `Keystore::IssuedEncryptionKeys` (`max_values`: None, `max_size`: Some(80), added:
+    /// 2555, mode: `MaxEncodedLen`)
+    fn issue_encryption_key() -> Weight {
+        Weight::from_parts(8_000_000, 0).saturating_add(T::DbWeight::get().writes(1_u64))
+    }
+    /// Storage: `Keystore::IssuedEncryptionKeys` (r:0 w:1)
+    /// Proof: `Keystore::IssuedEncryptionKeys` (`max_values`: None, `max_size`: Some(80), added:
+    /// 2555, mode: `MaxEncodedLen`)
+    fn issue_a_ton_of_encryption_keys() -> Weight {
+        Weight::from_parts(18_000_000, 0).saturating_add(T::DbWeight::get().writes(1_u64))
+    }
 }
 
 // For backwards compatibility and tests
 impl WeightInfo for () {
-	/// Storage: `Keystore::IssuedKeys` (r:1 w:1)
-	/// Proof: `Keystore::IssuedKeys` (`max_values`: None, `max_size`: Some(2116), added: 4591,
-	/// mode: `MaxEncodedLen`)
-	fn announce_key() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `6`
-		//  Estimated: `5581`
-		// Minimum execution time: 11_000_000 picoseconds.
-		Weight::from_parts(11_000_000, 5581)
-			.saturating_add(RocksDbWeight::get().reads(1_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
-	}
-	/// Storage: `Keystore::IssuedKeys` (r:1 w:1)
-	/// Proof: `Keystore::IssuedKeys` (`max_values`: None, `max_size`: Some(2116), added: 4591,
-	/// mode: `MaxEncodedLen`)
-	fn announce_a_whole_lotta_keys() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `2084`
-		//  Estimated: `5581`
-		// Minimum execution time: 43_000_000 picoseconds.
-		Weight::from_parts(50_000_000, 5581)
-			.saturating_add(RocksDbWeight::get().reads(1_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
-	}
-	/// Storage: `Keystore::IssuedKeys` (r:1 w:1)
-	/// Proof: `Keystore::IssuedKeys` (`max_values`: None, `max_size`: Some(2116), added: 4591,
-	/// mode: `MaxEncodedLen`)
-	fn announce_key_with_long_vectors() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `6`
-		//  Estimated: `5581`
-		// Minimum execution time: 15_000_000 picoseconds.
-		Weight::from_parts(16_000_000, 5581)
-			.saturating_add(RocksDbWeight::get().reads(1_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
-	}
-	/// Storage: `Keystore::IssuedKeys` (r:1 w:1)
-	/// Proof: `Keystore::IssuedKeys` (`max_values`: None, `max_size`: Some(2116), added: 4591,
-	/// mode: `MaxEncodedLen`)
-	fn announce_a_bunch_of_long_keys() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `2080`
-		//  Estimated: `5581`
-		// Minimum execution time: 48_000_000 picoseconds.
-		Weight::from_parts(58_000_000, 5581)
-			.saturating_add(RocksDbWeight::get().reads(1_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
-	}
-	/// Storage: `Keystore::IssuedKeys` (r:1 w:1)
-	/// Proof: `Keystore::IssuedKeys` (`max_values`: None, `max_size`: Some(2116), added: 4591,
-	/// mode: `MaxEncodedLen`)
-	fn revoke_key() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `134`
-		//  Estimated: `5581`
-		// Minimum execution time: 12_000_000 picoseconds.
-		Weight::from_parts(13_000_000, 5581)
-			.saturating_add(RocksDbWeight::get().reads(1_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
-	}
-	/// Storage: `Keystore::IssuedKeys` (r:1 w:1)
-	/// Proof: `Keystore::IssuedKeys` (`max_values`: None, `max_size`: Some(2116), added: 4591,
-	/// mode: `MaxEncodedLen`)
-	fn revoke_one_of_many_keys() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `2112`
-		//  Estimated: `5581`
-		// Minimum execution time: 46_000_000 picoseconds.
-		Weight::from_parts(51_000_000, 5581)
-			.saturating_add(RocksDbWeight::get().reads(1_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
-	}
-	/// Storage: `Keystore::IssuedEncryptionKeys` (r:0 w:1)
-	/// Proof: `Keystore::IssuedEncryptionKeys` (`max_values`: None, `max_size`: Some(80), added:
-	/// 2555, mode: `MaxEncodedLen`)
-	fn issue_encryption_key() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 7_000_000 picoseconds.
-		Weight::from_parts(8_000_000, 0).saturating_add(RocksDbWeight::get().writes(1_u64))
-	}
-	/// Storage: `Keystore::IssuedEncryptionKeys` (r:0 w:1)
-	/// Proof: `Keystore::IssuedEncryptionKeys` (`max_values`: None, `max_size`: Some(80), added:
-	/// 2555, mode: `MaxEncodedLen`)
-	fn issue_a_ton_of_encryption_keys() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 13_000_000 picoseconds.
-		Weight::from_parts(18_000_000, 0).saturating_add(RocksDbWeight::get().writes(1_u64))
-	}
+    /// Storage: `Keystore::IssuedKeys` (r:1 w:1)
+    /// Proof: `Keystore::IssuedKeys` (`max_values`: None, `max_size`: Some(2116), added: 4591,
+    /// mode: `MaxEncodedLen`)
+    fn announce_key() -> Weight {
+        // Proof Size summary in bytes:
+        //  Measured:  `6`
+        //  Estimated: `5581`
+        // Minimum execution time: 11_000_000 picoseconds.
+        Weight::from_parts(11_000_000, 5581)
+            .saturating_add(RocksDbWeight::get().reads(1_u64))
+            .saturating_add(RocksDbWeight::get().writes(1_u64))
+    }
+    /// Storage: `Keystore::IssuedKeys` (r:1 w:1)
+    /// Proof: `Keystore::IssuedKeys` (`max_values`: None, `max_size`: Some(2116), added: 4591,
+    /// mode: `MaxEncodedLen`)
+    fn announce_a_whole_lotta_keys() -> Weight {
+        // Proof Size summary in bytes:
+        //  Measured:  `2084`
+        //  Estimated: `5581`
+        // Minimum execution time: 43_000_000 picoseconds.
+        Weight::from_parts(50_000_000, 5581)
+            .saturating_add(RocksDbWeight::get().reads(1_u64))
+            .saturating_add(RocksDbWeight::get().writes(1_u64))
+    }
+    /// Storage: `Keystore::IssuedKeys` (r:1 w:1)
+    /// Proof: `Keystore::IssuedKeys` (`max_values`: None, `max_size`: Some(2116), added: 4591,
+    /// mode: `MaxEncodedLen`)
+    fn announce_key_with_long_vectors() -> Weight {
+        // Proof Size summary in bytes:
+        //  Measured:  `6`
+        //  Estimated: `5581`
+        // Minimum execution time: 15_000_000 picoseconds.
+        Weight::from_parts(16_000_000, 5581)
+            .saturating_add(RocksDbWeight::get().reads(1_u64))
+            .saturating_add(RocksDbWeight::get().writes(1_u64))
+    }
+    /// Storage: `Keystore::IssuedKeys` (r:1 w:1)
+    /// Proof: `Keystore::IssuedKeys` (`max_values`: None, `max_size`: Some(2116), added: 4591,
+    /// mode: `MaxEncodedLen`)
+    fn announce_a_bunch_of_long_keys() -> Weight {
+        // Proof Size summary in bytes:
+        //  Measured:  `2080`
+        //  Estimated: `5581`
+        // Minimum execution time: 48_000_000 picoseconds.
+        Weight::from_parts(58_000_000, 5581)
+            .saturating_add(RocksDbWeight::get().reads(1_u64))
+            .saturating_add(RocksDbWeight::get().writes(1_u64))
+    }
+    /// Storage: `Keystore::IssuedKeys` (r:1 w:1)
+    /// Proof: `Keystore::IssuedKeys` (`max_values`: None, `max_size`: Some(2116), added: 4591,
+    /// mode: `MaxEncodedLen`)
+    fn revoke_key() -> Weight {
+        // Proof Size summary in bytes:
+        //  Measured:  `134`
+        //  Estimated: `5581`
+        // Minimum execution time: 12_000_000 picoseconds.
+        Weight::from_parts(13_000_000, 5581)
+            .saturating_add(RocksDbWeight::get().reads(1_u64))
+            .saturating_add(RocksDbWeight::get().writes(1_u64))
+    }
+    /// Storage: `Keystore::IssuedKeys` (r:1 w:1)
+    /// Proof: `Keystore::IssuedKeys` (`max_values`: None, `max_size`: Some(2116), added: 4591,
+    /// mode: `MaxEncodedLen`)
+    fn revoke_one_of_many_keys() -> Weight {
+        // Proof Size summary in bytes:
+        //  Measured:  `2112`
+        //  Estimated: `5581`
+        // Minimum execution time: 46_000_000 picoseconds.
+        Weight::from_parts(51_000_000, 5581)
+            .saturating_add(RocksDbWeight::get().reads(1_u64))
+            .saturating_add(RocksDbWeight::get().writes(1_u64))
+    }
+    /// Storage: `Keystore::IssuedEncryptionKeys` (r:0 w:1)
+    /// Proof: `Keystore::IssuedEncryptionKeys` (`max_values`: None, `max_size`: Some(80), added:
+    /// 2555, mode: `MaxEncodedLen`)
+    fn issue_encryption_key() -> Weight {
+        // Proof Size summary in bytes:
+        //  Measured:  `0`
+        //  Estimated: `0`
+        // Minimum execution time: 7_000_000 picoseconds.
+        Weight::from_parts(8_000_000, 0).saturating_add(RocksDbWeight::get().writes(1_u64))
+    }
+    /// Storage: `Keystore::IssuedEncryptionKeys` (r:0 w:1)
+    /// Proof: `Keystore::IssuedEncryptionKeys` (`max_values`: None, `max_size`: Some(80), added:
+    /// 2555, mode: `MaxEncodedLen`)
+    fn issue_a_ton_of_encryption_keys() -> Weight {
+        // Proof Size summary in bytes:
+        //  Measured:  `0`
+        //  Estimated: `0`
+        // Minimum execution time: 13_000_000 picoseconds.
+        Weight::from_parts(18_000_000, 0).saturating_add(RocksDbWeight::get().writes(1_u64))
+    }
 }
