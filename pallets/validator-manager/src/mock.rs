@@ -142,6 +142,7 @@ impl pallet_validator_manager::Config for Test {
     type PrivilegedOrigin = frame_system::EnsureRoot<AccountId>;
     type MinAuthorities = MinAuthorities;
     type WeightInfo = ();
+    type ValidatorOf = pallet_validator_manager::ValidatorOf<Test>;
 }
 
 // Build genesis storage according to the mock runtime.

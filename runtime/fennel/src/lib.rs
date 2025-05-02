@@ -470,6 +470,13 @@ mod benches {
     );
 }
 
+// Implement benchmarking configuration traits outside of function scope
+#[cfg(feature = "runtime-benchmarks")]
+impl frame_system_benchmarking::Config for Runtime {}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl frame_benchmarking::baseline::Config for Runtime {}
+
 impl_runtime_apis! {
     impl sp_api::Core<Block> for Runtime {
         fn version() -> RuntimeVersion {
@@ -664,9 +671,6 @@ impl_runtime_apis! {
             use sp_storage::TrackedStorageKey;
             use frame_system_benchmarking::Pallet as SystemBench;
             use baseline::Pallet as BaselineBench;
-
-            impl frame_system_benchmarking::Config for Runtime {}
-            impl baseline::Config for Runtime {}
 
             use frame_support::traits::WhitelistedStorageKeys;
             let whitelist: Vec<TrackedStorageKey> = AllPalletsWithSystem::whitelisted_storage_keys();

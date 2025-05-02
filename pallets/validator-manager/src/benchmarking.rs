@@ -5,7 +5,6 @@ use super::*;
 
 #[allow(unused)]
 use crate::Pallet as ValidatorManager;
-use codec::Encode;
 use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
 use sp_std::prelude::*;
