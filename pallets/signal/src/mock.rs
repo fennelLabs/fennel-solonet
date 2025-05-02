@@ -1,3 +1,5 @@
+#![cfg(feature = "std")]
+
 use crate as pallet_signal;
 use frame_support::{derive_impl, parameter_types};
 use frame_system as system;
@@ -17,7 +19,7 @@ frame_support::construct_runtime!(
     {
         System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
         SignalModule: pallet_signal::{Pallet, Call, Storage, Event<T>},
-        Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
+        Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 10,
     }
 );
 

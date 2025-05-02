@@ -76,6 +76,9 @@ frame-system-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk.
 
 polkadot-runtime-common = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2407", default-features = false }
 
+# Add getrandom for WASM support in try-runtime
+getrandom = { version = "0.2", default-features = false, features = ["js"] }
+
 pallet-certificate = { path = "../../pallets/certificate", default-features = false }
 pallet-identity = { path = "../../pallets/identity", default-features = false }
 pallet-infostratus = { path = "../../pallets/infostratus", default-features = false }
@@ -176,6 +179,8 @@ try-runtime = [
 	"pallet-transaction-payment/try-runtime",
 	"sp-runtime/try-runtime",
 	"polkadot-runtime-common/try-runtime",
+	"pallet-validator-manager/try-runtime",
+	"getrandom/js",
 ]
 
 experimental = ["pallet-aura/experimental"]

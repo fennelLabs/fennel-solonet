@@ -160,6 +160,13 @@ pub mod pallet {
                 ensure!(validators.contains(&validator), Error::<T>::NotValidator);
             }
 
+            // During benchmarking, check if this is a known validator when not running a benchmark test
+            #[cfg(all(feature = "runtime-benchmarks", test))]
+            {
+                let validators = Session::<T>::validators();
+                ensure!(validators.contains(&validator), Error::<T>::NotValidator);
+            }
+
             // Add to removal queue
             let mut validators_to_remove = ValidatorsToRemove::<T>::get();
             validators_to_remove.push(validator.clone());

@@ -56,8 +56,13 @@ mod benchmarks {
         let validator_account: T::AccountId = account("validator", 0, 0);
         let validator_id = T::ValidatorIdOf::convert(validator_account.clone()).unwrap();
 
-        // Since we've modified the lib.rs to skip validation during benchmarking,
-        // the validator checks are bypassed
+        // Add the validator to the Session validators storage
+        // This is needed to make sure the validator exists when we try to remove it
+        let mut validators = Session::<T>::validators();
+        validators.push(validator_id.clone());
+        
+        // Manually insert validators into Session storage
+        pallet_session::Validators::<T>::put(validators);
 
         #[extrinsic_call]
         remove_validator(root_origin, validator_id.clone());

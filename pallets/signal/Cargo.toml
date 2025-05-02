@@ -17,7 +17,7 @@ codec = { default-features = false, features = ['derive', 'max-encoded-len'], pa
 frame-benchmarking = { default-features = false, git = 'https://github.com/paritytech/polkadot-sdk.git', optional = true, tag = "polkadot-stable2407" }
 frame-support = { default-features = false, git = 'https://github.com/paritytech/polkadot-sdk.git', tag = "polkadot-stable2407" }
 frame-system = { default-features = false, git = 'https://github.com/paritytech/polkadot-sdk.git', tag = "polkadot-stable2407" }
-pallet-balances = { default-features = false, git = 'https://github.com/paritytech/polkadot-sdk.git', tag = "polkadot-stable2407" }
+pallet-balances = { default-features = false, git = 'https://github.com/paritytech/polkadot-sdk.git', tag = "polkadot-stable2407", features = ["std"] }
 pallet-uniques = { default-features = false, git = 'https://github.com/paritytech/polkadot-sdk.git', tag = "polkadot-stable2407" }
 
 [dev-dependencies]
