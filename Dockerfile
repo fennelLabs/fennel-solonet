@@ -1,4 +1,4 @@
-FROM rust:1.74 as base
+FROM rust:1.86 AS base
 WORKDIR /app
 RUN DEBIAN_FRONTEND=noninteractive \
     apt-get update -y && \
@@ -11,18 +11,22 @@ RUN DEBIAN_FRONTEND=noninteractive \
 
 RUN cargo install cargo-chef
 
-FROM base as planner
+FROM base AS planner
 COPY . .
 RUN cargo chef prepare --recipe-path recipe.json
 
-FROM base as builder
+FROM base AS builder
 COPY --from=planner /app/recipe.json recipe.json
 COPY --from=planner /app/fennelSpecRaw.json fennelSpecRaw.json
 RUN cargo chef cook --release --recipe-path recipe.json
 COPY . .
 RUN cargo build --release
 
-FROM base as runtime
+FROM base AS tester
+COPY --from=builder /app/target/release/fennel-node /app/fennel-node
+RUN cargo test --features=runtime-benchmarks
+
+FROM base AS runtime
 COPY --from=builder /app/target/release/fennel-node /app/fennel-node
 COPY --from=builder /app/fennelSpecRaw.json fennelSpecRaw.json
 COPY --from=builder /app/chain-init.sh chain-init.sh
