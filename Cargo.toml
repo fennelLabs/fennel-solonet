@@ -8,7 +8,6 @@ homepage = "https://fennellabs.com"
 [workspace]
 members = [
     "node",
-    # "pallets/template",  # Removed missing template pallet
     "pallets/validator-manager",
     "pallets/certificate",
     "pallets/identity",
@@ -16,12 +15,12 @@ members = [
     "pallets/infostratus",
     "pallets/signal",
     "pallets/trust", 
-    "runtime",
+    "runtime/fennel",
 ]
 resolver = "2"
 
 [workspace.dependencies]
-solochain-template-runtime = { path = "./runtime", default-features = false }
+solochain-template-runtime = { path = "./runtime/fennel", default-features = false }
 pallet-validator-manager = { path = "./pallets/validator-manager", default-features = false }
 pallet-certificate = { path = "./pallets/certificate", default-features = false }
 pallet-identity = { path = "./pallets/identity", default-features = false }
