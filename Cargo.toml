@@ -22,7 +22,6 @@ resolver = "2"
 
 [workspace.dependencies]
 solochain-template-runtime = { path = "./runtime", default-features = false }
-# pallet-template = { path = "./pallets/template", default-features = false }  # Removed missing template pallet
 pallet-validator-manager = { path = "./pallets/validator-manager", default-features = false }
 pallet-certificate = { path = "./pallets/certificate", default-features = false }
 pallet-identity = { path = "./pallets/identity", default-features = false }
