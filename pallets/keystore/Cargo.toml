@@ -1,36 +1,42 @@
 [package]
-authors = ['Fennel Labs <https://github.com/fennelLabs>']
-description = 'FRAME pallet defining keystore and key management functionality.'
-edition = '2021'
-homepage = 'https://fennellabs.com'
-license = 'Unlicense'
-name = 'pallet-keystore'
-repository = 'https://github.com/fennelLabs/fennel-protocol/'
-version = '0.1.0'
+authors = ["Fennel Labs <https://github.com/fennelLabs>"]
+description = "FRAME pallet defining keystore and key management functionality."
+edition = "2021"
+homepage = "https://fennellabs.com"
+license = "Unlicense"
+name = "pallet-keystore"
+repository = "https://github.com/fennelLabs/fennel-protocol/"
+version = "0.1.0"
 
 [package.metadata.docs.rs]
-targets = ['x86_64-unknown-linux-gnu']
+targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-scale-info = { version = "2.11", default-features = false, features = ["derive"] }
-codec = { default-features = false, features = ['derive', 'max-encoded-len'], package = 'parity-scale-codec', version = '3.1' }
-frame-benchmarking = { default-features = false, git = 'https://github.com/paritytech/polkadot-sdk.git', optional = true, tag = "polkadot-stable2407" }
-frame-support = { default-features = false, git = 'https://github.com/paritytech/polkadot-sdk.git', tag = "polkadot-stable2407" }
-frame-system = { default-features = false, git = 'https://github.com/paritytech/polkadot-sdk.git', tag = "polkadot-stable2407" }
+codec = { workspace = true, default-features = false, features = ["derive", "max-encoded-len"] }
+scale-info = { workspace = true, default-features = false, features = ["derive"] }
+frame-benchmarking = { workspace = true, default-features = false, optional = true }
+frame-support = { workspace = true, default-features = false }
+frame-system = { workspace = true, default-features = false }
+sp-runtime = { workspace = true, default-features = false }
 
 [dev-dependencies]
-sp-core = { default-features = false, git = 'https://github.com/paritytech/polkadot-sdk.git', tag = "polkadot-stable2407" }
-sp-io = { default-features = false, git = 'https://github.com/paritytech/polkadot-sdk.git', tag = "polkadot-stable2407" }
-sp-runtime = { default-features = false, git = 'https://github.com/paritytech/polkadot-sdk.git', tag = "polkadot-stable2407" }
+sp-core = { workspace = true, default-features = false }
+sp-io = { workspace = true, default-features = false }
+sp-runtime = { workspace = true, default-features = false }
 
 [features]
-default = ['std']
-runtime-benchmarks = ['frame-benchmarking', 'frame-support/runtime-benchmarks', 'frame-system/runtime-benchmarks']
-std = [
-    'codec/std',
-    'frame-support/std',
-    'frame-system/std',
-    'frame-benchmarking/std',
-    'scale-info/std',
+default = ["std"]
+runtime-benchmarks = [
+  "frame-benchmarking", 
+  "frame-support/runtime-benchmarks", 
+  "frame-system/runtime-benchmarks",
+  "sp-runtime/runtime-benchmarks"
 ]
-try-runtime = ['frame-support/try-runtime', 'frame-system/try-runtime']
+std = [
+  "codec/std",
+  "frame-support/std",
+  "frame-system/std",
+  "frame-benchmarking?/std",
+  "scale-info/std"
+]
+try-runtime = ["frame-support/try-runtime", "frame-system/try-runtime"]
