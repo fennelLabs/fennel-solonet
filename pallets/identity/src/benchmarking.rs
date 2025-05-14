@@ -34,6 +34,7 @@ mod benchmarks {
         let last = Pallet::<T>::identity_number().saturating_sub(1);
 		#[extrinsic_call]
         Pallet::<T>::revoke_identity(RawOrigin::Signed(who.clone()), last);
+        // Check that the identity no longer exists in the IdentityList.
         assert!(Pallet::<T>::identity_list(last).is_none());
 		Ok(())
 	}
@@ -47,6 +48,7 @@ mod benchmarks {
         let val: BoundedVec<u8, T::MaxSize> = vec![1u8; l as usize].try_into().unwrap();
 		#[extrinsic_call]
         Pallet::<T>::add_or_update_identity_trait(RawOrigin::Signed(who.clone()), last, key.clone(), val.clone());
+        // Check that the identity no longer exists in the IdentityList.
         assert_eq!(Pallet::<T>::identity_trait_list(last, key), val);
 		Ok(())
 	}
