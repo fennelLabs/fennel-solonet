@@ -23,8 +23,11 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config: frame_system::Config {
+		/// The overarching event type.
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		/// Weight information for extrinsics in this pallet.
         type WeightInfo: WeightInfo;
+		// Please add one line of comment here about this config
         type MaxSize: Get<u32>;
     }
 
@@ -36,20 +39,24 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn identity_number)]
+	/// Tracks the number of identities currently active on the network.
     pub type IdentityNumber<T: Config> =
         StorageValue<Value = u32, QueryKind = ValueQuery, OnEmpty = DefaultCurrent<T>>;
 
     #[pallet::storage]
     #[pallet::getter(fn get_signal_count)]
+	/// Tracks the number of signals transmitted to the network.
     pub type SignalCount<T: Config> =
         StorageValue<Value = u32, QueryKind = ValueQuery, OnEmpty = DefaultCurrent<T>>;
 
     #[pallet::storage]
     #[pallet::getter(fn identity_list)]
+	/// Maps accounts to the array of identities it owns.
     pub type IdentityList<T: Config> = StorageMap<_, Blake2_128Concat, u32, T::AccountId>;
 
     #[pallet::storage]
     #[pallet::getter(fn identity_trait_list)]
+	/// Maps identity ID numbers to their key/value attributes.
     pub type IdentityTraitList<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
@@ -63,15 +70,23 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
+        /// Announce a new identity to the network. Contains the ID number of the identity and
+		/// the owning AccountId.
         IdentityCreated { identity_id: u32, owner: T::AccountId },
+        /// Announce that an identity has been revoked. Contains the ID number of the identity ad
+		/// the owning AccountId.
         IdentityRevoked { identity_id: u32, owner: T::AccountId },
+        /// Announce that an identity has been updated. Contains the ID number of the identity and
+		/// the owning AccountId.
         IdentityUpdated { identity_id: u32, owner: T::AccountId },
     }
 
     #[pallet::error]
     #[derive(PartialEq, Eq)]
     pub enum Error<T> {
+		/// The provided value is too large.
         StorageOverflow,
+		/// The current account does not own the identity.
         IdentityNotOwned,
     }
 
@@ -86,6 +101,7 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+		/// Create a new identity owned by origin.
         #[pallet::weight(T::WeightInfo::create_identity())]
         #[pallet::call_index(0)]
         pub fn create_identity(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
@@ -96,6 +112,8 @@ pub mod pallet {
                 Ok(())
             })?;
             let new_id: u32 = <IdentityNumber<T>>::get();
+
+			// Ensure that the index current_id isn't already in use.
             ensure!(!<IdentityList<T>>::contains_key(&current_id), Error::<T>::StorageOverflow);
             <IdentityList<T>>::try_mutate(&current_id, |owner| -> DispatchResult {
                 *owner = Some(who.clone());
@@ -105,10 +123,14 @@ pub mod pallet {
             Self::deposit_event(Event::IdentityCreated { identity_id: current_id, owner: who.clone() });
             Ok(().into())
         }
+
+		/// Revokes the identity with ID number identity_id, as long as the identity is owned by
+		/// origin.
         #[pallet::weight(T::WeightInfo::revoke_identity())]
         #[pallet::call_index(1)]
         pub fn revoke_identity(origin: OriginFor<T>, identity_id: u32) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
+            // Make sure the identity is owned by the sender.
             ensure!(Self::is_identity_owned_by_sender(&who, &identity_id), Error::<T>::IdentityNotOwned);
             <IdentityList<T>>::try_mutate(&identity_id, |owner| -> DispatchResult {
                 *owner = None;
@@ -117,7 +139,9 @@ pub mod pallet {
             Self::deposit_event(Event::IdentityRevoked { identity_id, owner: who.clone() });
             Ok(().into())
         }
-        #[pallet::weight(T::WeightInfo::add_or_update_identity_trait(key.len() as u32))]
+
+		/// Add a new identity trait to identity_id with key/value.
+		#[pallet::weight(T::WeightInfo::add_or_update_identity_trait())]
         #[pallet::call_index(2)]
         pub fn add_or_update_identity_trait(
             origin: OriginFor<T>,
@@ -134,7 +158,9 @@ pub mod pallet {
             Self::deposit_event(Event::IdentityUpdated { identity_id, owner: who.clone() });
             Ok(().into())
         }
-        #[pallet::weight(T::WeightInfo::remove_identity_trait(key.len() as u32))]
+
+		/// Remove an identity trait named by trait_name from the identity with ID identity_id.
+		#[pallet::weight(T::WeightInfo::remove_identity_trait())]
         #[pallet::call_index(3)]
         pub fn remove_identity_trait(
             origin: OriginFor<T>,
