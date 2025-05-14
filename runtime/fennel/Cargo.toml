@@ -1,5 +1,5 @@
 [package]
-name = "fennel-node-runtime"
+name = "solochain-template-runtime"
 description = "Fennel Protocol, implemented as a Substrate solochain."
 version = "0.0.0"
 license = "MIT-0"
