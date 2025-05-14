@@ -21,6 +21,12 @@ jobs:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v4
 
+      - name: Debug: Show workspace structure
+        run: |
+          pwd
+          ls -l
+          cat Cargo.toml
+
       - name: Install linux dependencies
         run: sudo apt-get install -y clang libssl-dev llvm libudev-dev protobuf-compiler
 
