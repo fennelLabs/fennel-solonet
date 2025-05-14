@@ -33,14 +33,19 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config: frame_system::Config {
+		/// The overarching event type.
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		/// Weight information for extrinsics in this pallet.
         type WeightInfo: WeightInfo;
         type Currency: LockableCurrency<
             Self::AccountId,
             Moment = frame_system::pallet_prelude::BlockNumberFor<Self>,
         >;
+		/// The maximum length of a submission resource location.
         type MaxSize: Get<u32>;
+		/// The identifier for the lock used to store deposits.
         type LockId: Get<LockIdentifier>;
+		/// The price of a lock.
         type LockPrice: Get<u32>;
     }
 
@@ -49,6 +54,7 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn assignments_list)]
+	/// Maps accounts to the array of identities it owns.
     pub type AssignmentsList<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
@@ -61,6 +67,7 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn submissions_list)]
+	/// Maps accounts to the submissions they've sent.
     pub type SubmissionsList<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
@@ -91,6 +98,9 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+		/// Creates an on-chain event that a submission has been sent.
+		/// This means that the origin wants a piece of online information verified by the
+		/// community.
         #[pallet::weight(T::WeightInfo::create_submission_entry())]
         #[pallet::call_index(0)]
         pub fn create_submission_entry(
@@ -105,6 +115,8 @@ pub mod pallet {
                 !SubmissionsList::<T>::contains_key(&who, &resource_location),
                 Error::<T>::SubmissionExists
             );
+			// Insert a placeholder value into storage - if the pair (who, recipient) exists, we
+			// know there's a certificate present for the pair, regardless of value.
             T::Currency::set_lock(T::LockId::get(), &who, 10u32.into(), WithdrawReasons::all());
             Self::deposit_event(Event::InfostratusLock { account: who.clone(), amount: T::Currency::free_balance(&who) });
             <SubmissionsList<T>>::try_mutate(
@@ -121,6 +133,7 @@ pub mod pallet {
 
         #[pallet::weight(T::WeightInfo::request_submission_assignment())]
         #[pallet::call_index(1)]
+		/// Creates an on-chain event that a submission has been assigned for the origin to verify.
         pub fn request_submission_assignment(
             origin: OriginFor<T>,
             poster: T::AccountId,
