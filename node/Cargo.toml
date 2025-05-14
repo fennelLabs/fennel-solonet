@@ -54,7 +54,7 @@ sc-transaction-pool-api.default-features = true
 sc-transaction-pool-api.workspace = true
 sc-transaction-pool.default-features = true
 sc-transaction-pool.workspace = true
-solochain-template-runtime = { path = "../runtime" }
+solochain-template-runtime = { path = "../runtime/fennel" }
 sp-api.default-features = true
 sp-api.workspace = true
 sp-block-builder.default-features = true
