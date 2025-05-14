@@ -27,7 +27,7 @@ mod benchmarks {
 	#[benchmark]
     fn revoke_key() {
         let caller: T::AccountId = whitelisted_caller();
-        // Check how the extrinsic performs with a lot of keys in storage already. Might not be here?
+        
         let fingerprint = BoundedVec::<u8, T::MaxSize>::try_from(b"fingerprint".to_vec()).unwrap();
         let location = BoundedVec::<u8, T::MaxSize>::try_from(b"location".to_vec()).unwrap();
         // Pre-insert key

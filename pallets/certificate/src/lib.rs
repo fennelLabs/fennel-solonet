@@ -114,7 +114,9 @@ pub mod pallet {
 		}
 		#[pallet::weight(T::WeightInfo::revoke_certificate())]
 		#[pallet::call_index(1)]
-        pub fn revoke_certificate(origin: OriginFor<T>, recipient: T::AccountId) -> DispatchResultWithPostInfo {
+		/// Revokes the identity with ID number identity_id, as long as the identity is owned by
+		/// origin.
+		pub fn revoke_certificate(origin: OriginFor<T>, recipient: T::AccountId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			if T::Currency::total_balance(&who) < T::Currency::minimum_balance() {
 				return Err(Error::<T>::InsufficientBalance.into());
