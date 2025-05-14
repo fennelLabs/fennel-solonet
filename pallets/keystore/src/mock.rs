@@ -5,6 +5,7 @@ use sp_runtime::BuildStorage;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
+// Configure a mock runtime to test the pallet.
 #[frame_support::runtime]
 mod runtime {
     #[runtime::runtime]
@@ -38,6 +39,7 @@ impl pallet_keystore::Config for Test {
 	type MaxSize = ConstU32<1024>;
 }
 
+// Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
     frame_system::GenesisConfig::<Test>::default()
 		.build_storage()
