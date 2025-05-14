@@ -1,5 +1,5 @@
 [package]
-name = "solochain-template-runtime"
+name = "fennel-node-runtime"
 description = "Fennel Protocol, implemented as a Substrate solochain."
 version = "0.0.0"
 license = "MIT-0"
@@ -17,11 +17,14 @@ codec = { features = ["derive"], workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
 frame-executive.workspace = true
 frame-metadata-hash-extension.workspace = true
+# frame
 frame-support = { features = ["experimental"], workspace = true }
 frame-system-benchmarking = { optional = true, workspace = true }
+frame-try-runtime = { optional = true, workspace = true }
+
 frame-system-rpc-runtime-api.workspace = true
 frame-system.workspace = true
-frame-try-runtime = { optional = true, workspace = true }
+
 pallet-aura.workspace = true
 pallet-balances.workspace = true
 pallet-grandpa.workspace = true
