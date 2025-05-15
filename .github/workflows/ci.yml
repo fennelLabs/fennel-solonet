@@ -21,6 +21,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: 1.84.1
+          override: true
+          components: rustfmt, clippy
+
       - if: contains(matrix.os, 'ubuntu')
         uses: ./.github/actions/free-disk-space
       - if: contains(matrix.os, 'ubuntu')
@@ -54,6 +61,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: 1.84.1
+          override: true
+          components: rustfmt, clippy
+
       - if: contains(matrix.os, 'ubuntu')
         uses: ./.github/actions/free-disk-space
       - if: contains(matrix.os, 'ubuntu')
@@ -77,6 +91,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: 1.84.1
+          override: true
+          components: rustfmt, clippy
 
       - uses: ./.github/actions/free-disk-space
 

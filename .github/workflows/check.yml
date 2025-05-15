@@ -1,0 +1,60 @@
+name: Check Set-Up & Build
+
+# Controls when the action will run.
+on:
+  push:
+    branches: '*'
+  pull_request:
+    branches: '*'
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  check:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-22.04
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: 1.84.1
+          override: true
+          components: rustfmt, clippy
+
+      - name: Debug: Show workspace structure
+        run: |
+          pwd
+          ls -l
+          cat Cargo.toml
+
+      - name: Install linux dependencies
+        run: sudo apt-get install -y clang libssl-dev llvm libudev-dev protobuf-compiler
+
+      - name: Install Rust
+        run: |
+          rustup update 1.84.1 --no-self-update
+          rustup target add wasm32-unknown-unknown
+
+      # Rust cache
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Clear Cargo cache
+        run: |
+          rm -rf ~/.cargo/registry
+          rm -rf ~/.cargo/git
+
+      - name: Check Build
+        run: |
+          SKIP_WASM_BUILD=1 cargo check --release
+
+      - name: Check Build for Benchmarking
+        run: >
+          pushd node &&
+          cargo check --features=runtime-benchmarks --release
