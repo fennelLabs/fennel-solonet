@@ -42,5 +42,5 @@ mod benchmarks {
         assert!(SubmissionsList::<T>::contains_key(&poster, &resource));
 	}
 
-	impl_benchmark_test_suite!(crate::Pallet::<T>, crate::mock::new_test_ext(), crate::mock::Test);
+	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }
