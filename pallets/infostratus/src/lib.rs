@@ -153,7 +153,7 @@ pub mod pallet {
                 Error::<T>::SubmissionAlreadyAssigned
             );
             T::Currency::set_lock(T::LockId::get(), &who, 10u32.into(), WithdrawReasons::all());
-            Self::deposit_event(Event::InfostratusUnlock { account: who.clone(), amount: T::Currency::free_balance(&who) });
+            Self::deposit_event(Event::InfostratusLock { account: who.clone(), amount: T::Currency::free_balance(&who) });
             <AssignmentsList<T>>::try_mutate(
                 &who,
                 resource_location.clone(),
