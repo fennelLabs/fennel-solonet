@@ -15,16 +15,16 @@ FROM base AS planner
 COPY . .
 RUN cargo chef prepare --recipe-path recipe.json
 
+FROM base AS tester
+COPY . .
+RUN cargo test --features=runtime-benchmarks
+
 FROM base AS builder
 COPY --from=planner /app/recipe.json recipe.json
 COPY --from=planner /app/fennelSpecRaw.json fennelSpecRaw.json
 RUN cargo chef cook --release --recipe-path recipe.json
 COPY . .
 RUN cargo build --release
-
-FROM base AS tester
-COPY . .
-RUN cargo test --features=runtime-benchmarks
 
 FROM base AS runtime
 COPY --from=builder /app/target/release/fennel-node /app/fennel-node
