@@ -23,6 +23,7 @@ COPY . .
 RUN cargo build --release
 
 FROM base AS tester
+COPY . .
 RUN cargo test --features=runtime-benchmarks
 
 FROM base AS runtime
