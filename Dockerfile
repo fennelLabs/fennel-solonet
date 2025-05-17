@@ -23,8 +23,6 @@ COPY . .
 RUN cargo build --release
 
 FROM base AS tester
-COPY . .
-COPY --from=builder /app/target/release/fennel-node /app/fennel-node
 RUN cargo test --features=runtime-benchmarks
 
 FROM base AS runtime

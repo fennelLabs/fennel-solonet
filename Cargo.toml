@@ -8,13 +8,7 @@ homepage = "https://fennellabs.com"
 [workspace]
 members = [
     "node",
-    "pallets/validator-manager",
-    "pallets/certificate",
-    "pallets/identity",
-    "pallets/keystore",
-    "pallets/infostratus",
-    "pallets/signal",
-    "pallets/trust", 
+    "pallets/*",
     "runtime/fennel",
 ]
 resolver = "2"
