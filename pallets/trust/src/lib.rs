@@ -16,7 +16,7 @@ pub use weights::*;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use frame_support::{dispatch::DispatchResult, pallet_prelude::*};
+	use frame_support::{dispatch::DispatchResultWithPostInfo, pallet_prelude::*};
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::traits::One;
 
@@ -92,19 +92,19 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Announce that a trust parameter has been set
-		TrustParameterSet(T::AccountId),
+		TrustParameterSet { who: T::AccountId },
 		/// Announce that an account has issued trust to another account
-		TrustIssued(T::AccountId, T::AccountId),
+		TrustIssued { issuer: T::AccountId, target: T::AccountId },
 		/// Announce that an account has revoked trust from another account
-		TrustRevoked(T::AccountId, T::AccountId),
+		TrustRevoked { issuer: T::AccountId, target: T::AccountId },
 		/// Announce that an account has requested trust from another account
-		TrustRequest(T::AccountId, T::AccountId),
+		TrustRequest { requester: T::AccountId, target: T::AccountId },
 		/// Announce that an account has cancelled a trust request from another account
-		TrustRequestRemoved(T::AccountId, T::AccountId),
+		TrustRequestRemoved { requester: T::AccountId, target: T::AccountId },
 		/// Announce that an account has removed trust from another account
-		TrustIssuanceRemoved(T::AccountId, T::AccountId),
+		TrustIssuanceRemoved { issuer: T::AccountId, target: T::AccountId },
 		/// Announce that an account has removed a trust revocation from another account
-		TrustRevocationRemoved(T::AccountId, T::AccountId),
+		TrustRevocationRemoved { issuer: T::AccountId, target: T::AccountId },
 	}
 
 	#[pallet::error]
@@ -130,7 +130,7 @@ pub mod pallet {
 		/// Fully give `origin`'s trust to account `address`
 		#[pallet::weight(T::WeightInfo::issue_trust())]
 		#[pallet::call_index(0)]
-		pub fn issue_trust(origin: OriginFor<T>, address: T::AccountId) -> DispatchResult {
+		pub fn issue_trust(origin: OriginFor<T>, address: T::AccountId) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
 			ensure!(!<TrustIssuance<T>>::contains_key(&who, &address), Error::<T>::TrustExists);
@@ -140,15 +140,15 @@ pub mod pallet {
 				total.checked_add(One::one()).ok_or(Error::<T>::StorageOverflow)?;
 			<TrustIssuance<T>>::insert(&who, &address, total);
 			<CurrentIssued<T>>::put(new_total);
-			Self::deposit_event(Event::TrustIssued(who, address));
+			Self::deposit_event(Event::TrustIssued { issuer: who.clone(), target: address.clone() });
 
-			Ok(())
+			Ok(().into())
 		}
 
 		/// Remove issued trust from an account `address`, making their trust status 'Unknown'
 		#[pallet::weight(T::WeightInfo::remove_trust())]
 		#[pallet::call_index(1)]
-		pub fn remove_trust(origin: OriginFor<T>, address: T::AccountId) -> DispatchResult {
+		pub fn remove_trust(origin: OriginFor<T>, address: T::AccountId) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
 			ensure!(<TrustIssuance<T>>::contains_key(&who, &address), Error::<T>::TrustNotFound);
@@ -157,15 +157,15 @@ pub mod pallet {
 			let new_key: u32 = key.checked_sub(One::one()).ok_or(Error::<T>::StorageOverflow)?;
 			<TrustIssuance<T>>::remove(&who, &address);
 			<CurrentIssued<T>>::put(new_key);
-			Self::deposit_event(Event::TrustIssuanceRemoved(address, who));
+			Self::deposit_event(Event::TrustIssuanceRemoved { issuer: who.clone(), target: address.clone() });
 
-			Ok(())
+			Ok(().into())
 		}
 
 		/// Place a request for `address` to issue explicit trust to the sender.
 		#[pallet::weight(T::WeightInfo::request_trust())]
 		#[pallet::call_index(2)]
-		pub fn request_trust(origin: OriginFor<T>, address: T::AccountId) -> DispatchResult {
+		pub fn request_trust(origin: OriginFor<T>, address: T::AccountId) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
 			ensure!(
@@ -178,15 +178,15 @@ pub mod pallet {
 				total.checked_add(One::one()).ok_or(Error::<T>::StorageOverflow)?;
 			<CurrentRequests<T>>::put(new_total);
 			<TrustRequestList<T>>::insert(&who, &address, total);
-			Self::deposit_event(Event::TrustRequest(who, address));
+			Self::deposit_event(Event::TrustRequest { requester: who.clone(), target: address.clone() });
 
-			Ok(())
+			Ok(().into())
 		}
 
 		/// Rescind or cancel a trust request placed to `address`.
 		#[pallet::weight(T::WeightInfo::cancel_trust_request())]
 		#[pallet::call_index(3)]
-		pub fn cancel_trust_request(origin: OriginFor<T>, address: T::AccountId) -> DispatchResult {
+		pub fn cancel_trust_request(origin: OriginFor<T>, address: T::AccountId) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
 			ensure!(
@@ -198,9 +198,9 @@ pub mod pallet {
 			let new_key: u32 = key.checked_sub(One::one()).ok_or(Error::<T>::StorageOverflow)?;
 			<TrustRequestList<T>>::remove(&who, &address);
 			<CurrentRequests<T>>::put(new_key);
-			Self::deposit_event(Event::TrustRequestRemoved(address, who));
+			Self::deposit_event(Event::TrustRequestRemoved { requester: who.clone(), target: address.clone() });
 
-			Ok(())
+			Ok(().into())
 		}
 
 		/// Explicitly mark an account as untrusted.
@@ -209,7 +209,7 @@ pub mod pallet {
 		/// This is functionally like adding an address to a public block list or a spam list.
 		#[pallet::weight(T::WeightInfo::revoke_trust())]
 		#[pallet::call_index(4)]
-		pub fn revoke_trust(origin: OriginFor<T>, address: T::AccountId) -> DispatchResult {
+		pub fn revoke_trust(origin: OriginFor<T>, address: T::AccountId) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
 			ensure!(
@@ -221,15 +221,15 @@ pub mod pallet {
 			let new_key: u32 = key.checked_add(One::one()).ok_or(Error::<T>::StorageOverflow)?;
 			<TrustRevocation<T>>::insert(&who, &address, key);
 			<CurrentRevoked<T>>::put(new_key);
-			Self::deposit_event(Event::TrustRevoked(address, who));
+			Self::deposit_event(Event::TrustRevoked { issuer: who.clone(), target: address.clone() });
 
-			Ok(())
+			Ok(().into())
 		}
 
 		/// Return an untrusted `address` to an Unknown trust state
 		#[pallet::weight(T::WeightInfo::remove_revoked_trust())]
 		#[pallet::call_index(5)]
-		pub fn remove_revoked_trust(origin: OriginFor<T>, address: T::AccountId) -> DispatchResult {
+		pub fn remove_revoked_trust(origin: OriginFor<T>, address: T::AccountId) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
 			ensure!(
@@ -241,9 +241,9 @@ pub mod pallet {
 			let new_key: u32 = key.checked_sub(One::one()).ok_or(Error::<T>::StorageOverflow)?;
 			<TrustRevocation<T>>::remove(&who, &address);
 			<CurrentRevoked<T>>::put(new_key);
-			Self::deposit_event(Event::TrustRevocationRemoved(address, who));
+			Self::deposit_event(Event::TrustRevocationRemoved { issuer: who.clone(), target: address.clone() });
 
-			Ok(())
+			Ok(().into())
 		}
 
 		/// Defines coefficients that participants should use to weight rating functions.
@@ -253,13 +253,13 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			name: BoundedVec<u8, T::MaxTrustParameterSize>,
 			value: u8,
-		) -> DispatchResult {
+		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
 			<TrustParameterList<T>>::insert(who.clone(), name, value);
-			Self::deposit_event(Event::TrustParameterSet(who));
+			Self::deposit_event(Event::TrustParameterSet { who });
 
-			Ok(())
+			Ok(().into())
 		}
 	}
 }

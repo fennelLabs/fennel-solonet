@@ -16,7 +16,7 @@ pub use weights::*;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use frame_support::{dispatch::DispatchResult, pallet_prelude::*};
+    use frame_support::{dispatch::DispatchResultWithPostInfo, pallet_prelude::*};
 	use frame_system::pallet_prelude::*;
 
 	use crate::weights::WeightInfo;
@@ -57,11 +57,11 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Announce when an identity has broadcast a new key as an event.
-		EncryptionKeyIssued(T::AccountId),
+        KeyAnnounced { key: BoundedVec<u8, T::MaxSize>, who: T::AccountId },
 		/// Announce when an identity has set a key as revoked.
-		KeyRevoked(BoundedVec<u8, T::MaxSize>, T::AccountId),
-		/// Announce that a key exists.
-		KeyAnnounced(BoundedVec<u8, T::MaxSize>, T::AccountId),
+        KeyRevoked { key: BoundedVec<u8, T::MaxSize>, who: T::AccountId },
+        /// Announce that an encryption key was issued.
+        EncryptionKeyIssued { who: T::AccountId },
 	}
 
 	#[pallet::error]
@@ -81,15 +81,14 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			fingerprint: BoundedVec<u8, T::MaxSize>,
 			location: BoundedVec<u8, T::MaxSize>,
-		) -> DispatchResult {
+        ) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
 			ensure!(!<IssuedKeys<T>>::contains_key(&who, &fingerprint), Error::<T>::KeyExists);
 
 			<IssuedKeys<T>>::insert(&who, &fingerprint, &location);
-
-			Self::deposit_event(Event::KeyAnnounced(fingerprint, who));
-			Ok(())
+            Self::deposit_event(Event::KeyAnnounced { key: fingerprint.clone(), who: who.clone() });
+            Ok(().into())
 		}
 
 		/// If a key needs to be removed from circulation, this extrinsic will handle deleting it
@@ -99,27 +98,25 @@ pub mod pallet {
 		pub fn revoke_key(
 			origin: OriginFor<T>,
 			key_index: BoundedVec<u8, T::MaxSize>,
-		) -> DispatchResult {
+        ) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
 			ensure!(<IssuedKeys<T>>::contains_key(&who, &key_index), Error::<T>::KeyDoesNotExist);
 
 			<IssuedKeys<T>>::remove(&who, &key_index);
-
-			Self::deposit_event(Event::KeyRevoked(key_index, who));
-			Ok(())
+            Self::deposit_event(Event::KeyRevoked { key: key_index.clone(), who: who.clone() });
+            Ok(().into())
 		}
 
 		/// Announces an encryption key to the network.
 		#[pallet::weight(T::WeightInfo::issue_encryption_key())]
 		#[pallet::call_index(2)]
-		pub fn issue_encryption_key(origin: OriginFor<T>, key: [u8; 32]) -> DispatchResult {
+        pub fn issue_encryption_key(origin: OriginFor<T>, key: [u8; 32]) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
 			<IssuedEncryptionKeys<T>>::insert(&who, key);
-
-			Self::deposit_event(Event::EncryptionKeyIssued(who));
-			Ok(())
+            Self::deposit_event(Event::EncryptionKeyIssued { who: who.clone() });
+            Ok(().into())
 		}
 	}
 }
