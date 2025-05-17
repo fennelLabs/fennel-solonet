@@ -7,7 +7,7 @@ fn test_send_certificate() {
 		System::set_block_number(1);
 		let _ = Balances::deposit_creating(&1, 100);
 		assert_ok!(CertificateModule::send_certificate(RuntimeOrigin::signed(1), 1));
-		System::assert_last_event(crate::Event::CertificateSent(1, 1).into());
+		System::assert_last_event(crate::Event::CertificateSent { sender: 1, recipient: 1 }.into());
 		assert_eq!(CertificateModule::certificate_list(1, 1), true);
 	});
 }
@@ -18,7 +18,7 @@ fn test_send_existing_certificate() {
 		System::set_block_number(1);
 		let _ = Balances::deposit_creating(&1, 100);
 		assert_ok!(CertificateModule::send_certificate(RuntimeOrigin::signed(1), 1));
-		System::assert_last_event(crate::Event::CertificateSent(1, 1).into());
+		System::assert_last_event(crate::Event::CertificateSent { sender: 1, recipient: 1 }.into());
 		assert_noop!(
 			CertificateModule::send_certificate(RuntimeOrigin::signed(1), 1),
 			Error::<Test>::CertificateExists
@@ -33,9 +33,9 @@ fn test_revoke_certificate() {
 		System::set_block_number(1);
 		let _ = Balances::deposit_creating(&1, 100);
 		assert_ok!(CertificateModule::send_certificate(RuntimeOrigin::signed(1), 1));
-		System::assert_last_event(crate::Event::CertificateSent(1, 1).into());
+		System::assert_last_event(crate::Event::CertificateSent { sender: 1, recipient: 1 }.into());
 		assert_ok!(CertificateModule::revoke_certificate(RuntimeOrigin::signed(1), 1));
-		System::assert_last_event(crate::Event::CertificateRevoked(1, 1).into());
+		System::assert_last_event(crate::Event::CertificateRevoked { sender: 1, recipient: 1 }.into());
 		assert_eq!(CertificateModule::certificate_list(1, 1), false);
 	});
 }
@@ -47,7 +47,7 @@ fn test_try_revoke_unowned_certificate() {
 		let _ = Balances::deposit_creating(&1, 100);
 		let _ = Balances::deposit_creating(&2, 100);
 		assert_ok!(CertificateModule::send_certificate(RuntimeOrigin::signed(1), 1));
-		System::assert_last_event(crate::Event::CertificateSent(1, 1).into());
+		System::assert_last_event(crate::Event::CertificateSent { sender: 1, recipient: 1 }.into());
 		assert_noop!(
 			CertificateModule::revoke_certificate(RuntimeOrigin::signed(2), 1),
 			Error::<Test>::CertificateNotOwned

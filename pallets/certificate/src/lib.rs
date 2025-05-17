@@ -19,7 +19,7 @@ const CERTIFICATE_EXISTS: bool = true;
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::{
-		dispatch::DispatchResult,
+        dispatch::{DispatchResultWithPostInfo, DispatchResult},
 		pallet_prelude::*,
 		traits::{Currency, LockIdentifier, LockableCurrency, WithdrawReasons},
 	};
@@ -65,12 +65,12 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// A `certificate` was sent.
-		CertificateSent(T::AccountId, T::AccountId),
-		/// A `certificate` was revoked.
-		CertificateRevoked(T::AccountId, T::AccountId),
-		CertificateLock(<T as frame_system::Config>::AccountId, BalanceOf<T>),
-		CertificateUnlock(<T as frame_system::Config>::AccountId, BalanceOf<T>),
+        /// A `certificate` was sent.
+		CertificateSent { sender: T::AccountId, recipient: T::AccountId },
+        /// A `certificate` was revoked.
+		CertificateRevoked { sender: T::AccountId, recipient: T::AccountId },
+        CertificateLock { account: T::AccountId, amount: BalanceOf<T> },
+        CertificateUnlock { account: T::AccountId, amount: BalanceOf<T> },
 	}
 
 	#[pallet::error]
@@ -88,13 +88,11 @@ pub mod pallet {
 		/// and commits the details to storage.
 		#[pallet::weight(T::WeightInfo::send_certificate())]
 		#[pallet::call_index(0)]
-		pub fn send_certificate(origin: OriginFor<T>, recipient: T::AccountId) -> DispatchResult {
+        pub fn send_certificate(origin: OriginFor<T>, recipient: T::AccountId) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-
 			if T::Currency::total_balance(&who) < T::Currency::minimum_balance() {
 				return Err(Error::<T>::InsufficientBalance.into());
 			}
-
 			ensure!(
 				!CertificateList::<T>::contains_key(&who, &recipient),
 				Error::<T>::CertificateExists
@@ -102,12 +100,7 @@ pub mod pallet {
 			// Insert a placeholder value into storage - if the pair (who, recipient) exists, we
 			// know there's a certificate present for the pair, regardless of value.
 			T::Currency::set_lock(T::LockId::get(), &who, 10u32.into(), WithdrawReasons::all());
-
-			Self::deposit_event(Event::CertificateLock(
-				who.clone(),
-				T::Currency::free_balance(&who),
-			));
-
+            Self::deposit_event(Event::CertificateLock { account: who.clone(), amount: T::Currency::free_balance(&who) });
 			<CertificateList<T>>::try_mutate(
 				&who,
 				recipient.clone(),
@@ -116,34 +109,24 @@ pub mod pallet {
 					Ok(())
 				},
 			)?;
-
-			Self::deposit_event(Event::CertificateSent(recipient, who));
-
-			Ok(())
+            Self::deposit_event(Event::CertificateSent { sender: who.clone(), recipient: recipient.clone() });
+            Ok(().into())
 		}
-
 		#[pallet::weight(T::WeightInfo::revoke_certificate())]
 		#[pallet::call_index(1)]
 		/// Revokes the identity with ID number identity_id, as long as the identity is owned by
 		/// origin.
-		pub fn revoke_certificate(origin: OriginFor<T>, recipient: T::AccountId) -> DispatchResult {
+		pub fn revoke_certificate(origin: OriginFor<T>, recipient: T::AccountId) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-
 			if T::Currency::total_balance(&who) < T::Currency::minimum_balance() {
 				return Err(Error::<T>::InsufficientBalance.into());
 			}
-
 			ensure!(
 				CertificateList::<T>::contains_key(&who, &recipient),
 				Error::<T>::CertificateNotOwned
 			);
-
 			T::Currency::remove_lock(T::LockId::get(), &who);
-			Self::deposit_event(Event::CertificateUnlock(
-				who.clone(),
-				T::Currency::free_balance(&who),
-			));
-
+            Self::deposit_event(Event::CertificateUnlock { account: who.clone(), amount: T::Currency::free_balance(&who) });
 			<CertificateList<T>>::try_mutate(
 				&who,
 				recipient.clone(),
@@ -152,10 +135,8 @@ pub mod pallet {
 					Ok(())
 				},
 			)?;
-
-			Self::deposit_event(Event::CertificateRevoked(recipient, who));
-
-			Ok(())
+            Self::deposit_event(Event::CertificateRevoked { sender: who.clone(), recipient: recipient.clone() });
+            Ok(().into())
 		}
 	}
 }

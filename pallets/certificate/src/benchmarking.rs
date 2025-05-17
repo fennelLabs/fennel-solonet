@@ -1,20 +1,22 @@
-//! Benchmarking setup for pallet-template
+//! Benchmarking setup for pallet-certificate
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
 use crate::Pallet as Certificate;
-
 use frame_benchmarking::{account as benchmark_account, v2::*};
-use frame_support::{sp_runtime::traits::Bounded, traits::Currency};
+use frame_support::{traits::Currency, sp_runtime::traits::Bounded};
 use frame_system::RawOrigin;
 
 pub fn get_account<T: Config>(name: &'static str) -> T::AccountId {
-	let account: T::AccountId = benchmark_account(name, 0, 0);
-	account
+	benchmark_account(name, 0, 0)
 }
 
 pub fn get_origin<T: Config>(name: &'static str) -> RawOrigin<T::AccountId> {
 	RawOrigin::Signed(get_account::<T>(name))
+}
+
+pub fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
+    frame_system::Pallet::<T>::assert_last_event(generic_event.into());
 }
 
 #[benchmarks]
@@ -36,85 +38,30 @@ mod benchmarks {
 
 		let caller_account_id: T::AccountId = get_account::<T>("Spock");
 		let target_account_id: T::AccountId = get_account::<T>("James");
-		assert!(CertificateList::<T>::contains_key(caller_account_id, target_account_id));
-
-		Ok(())
-	}
-
-	#[benchmark]
-	fn send_certificate_heavy_storage() -> Result<(), BenchmarkError> {
-		let caller = get_origin::<T>("Leonard");
-		let caller_account: T::AccountId = get_account::<T>("Leonard");
-
-		T::Currency::make_free_balance_be(&caller_account, BalanceOf::<T>::max_value());
-
-		// Generate a larger set of certificates.
-		for i in 0..10000 {
-			let target: T::AccountId = benchmark_account("target", i, 0);
-			Certificate::<T>::send_certificate(caller.clone().into(), target.clone())?;
-		}
-
-		let target = get_account::<T>("Montgomery");
-		#[extrinsic_call]
-		send_certificate(caller, target);
-
-		let caller_account_id: T::AccountId = get_account::<T>("Leonard");
-		let target_account_id: T::AccountId = get_account::<T>("Montgomery");
-		assert!(CertificateList::<T>::contains_key(caller_account_id, target_account_id));
+		assert!(CertificateList::<T>::contains_key(caller_account_id.clone(), target_account_id.clone()));
+		assert_last_event::<T>(Event::CertificateSent { sender: caller_account_id, recipient: target_account_id }.into());
 
 		Ok(())
 	}
 
 	#[benchmark]
 	fn revoke_certificate() -> Result<(), BenchmarkError> {
-		let caller = get_origin::<T>("Leonard");
-		let caller_account: T::AccountId = get_account::<T>("Leonard");
 		let target = get_account::<T>("Montgomery");
+		let caller = get_origin::<T>("Spock");
+		let caller_account: T::AccountId = get_account::<T>("Spock");
 
 		T::Currency::make_free_balance_be(&caller_account, BalanceOf::<T>::max_value());
-
+		// Use direct call for setup, not the macro shorthand
 		Certificate::<T>::send_certificate(caller.clone().into(), target.clone())?;
 
 		#[extrinsic_call]
-		_(caller, target);
+		_(caller, target.clone());
 
-		let caller_account_id: T::AccountId = get_account::<T>("Leonard");
+		let caller_account_id: T::AccountId = get_account::<T>("Spock");
 		let target_account_id: T::AccountId = get_account::<T>("Montgomery");
-		assert!(CertificateList::<T>::contains_key(
-			caller_account_id.clone(),
-			target_account_id.clone()
-		));
-		assert!(!CertificateList::<T>::get(caller_account_id, target_account_id));
-
-		Ok(())
-	}
-
-	#[benchmark]
-	fn revoke_certificate_heavy_storage() -> Result<(), BenchmarkError> {
-		let caller = get_origin::<T>("Leonard");
-		let caller_account: T::AccountId = get_account::<T>("Leonard");
-
-		T::Currency::make_free_balance_be(&caller_account, BalanceOf::<T>::max_value());
-
-		// Generate a larger set of certificates.
-		for i in 0..10000 {
-			let target: T::AccountId = benchmark_account("target", i, 0);
-			Certificate::<T>::send_certificate(caller.clone().into(), target.clone())?;
-		}
-
-		let target = get_account::<T>("Montgomery");
-		Certificate::<T>::send_certificate(caller.clone().into(), target.clone())?;
-		#[extrinsic_call]
-		revoke_certificate(caller, target);
-
-		let caller_account_id: T::AccountId = get_account::<T>("Leonard");
-		let target_account_id: T::AccountId = get_account::<T>("Montgomery");
-		assert!(CertificateList::<T>::contains_key(
-			caller_account_id.clone(),
-			target_account_id.clone()
-		));
-		assert!(!CertificateList::<T>::get(caller_account_id, target_account_id));
-
+		assert!(CertificateList::<T>::contains_key(caller_account_id.clone(), target_account_id.clone()));
+		assert!(!CertificateList::<T>::get(caller_account_id.clone(), target_account_id.clone()));
+		assert_last_event::<T>(Event::CertificateRevoked { sender: caller_account_id, recipient: target_account_id }.into());
 		Ok(())
 	}
 

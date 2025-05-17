@@ -1,33 +1,29 @@
 use crate as pallet_identity;
-use frame_support::{derive_impl, parameter_types};
-use frame_system as system;
-use sp_core::{ConstU32, H256};
-use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage,
-};
+use frame_support::{parameter_types, traits::{ConstU32, Everything}};
+use sp_core::H256;
+use sp_runtime::{traits::{BlakeTwo256, IdentityLookup}, BuildStorage};
 
+// --- Substrate standard mock runtime setup ---
 type Block = frame_system::mocking::MockBlock<Test>;
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
-	pub enum Test
-	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		IdentityModule: pallet_identity::{Pallet, Call, Storage, Event<T>},
+    pub enum Test {
+        System: frame_system,
+        Balances: pallet_balances,
+        Identity: pallet_identity,
 	}
 );
 
 parameter_types! {
 	pub const BlockHashCount: u64 = 250;
 	pub const SS58Prefix: u8 = 42;
+    pub const ExistentialDeposit: u128 = 1;
+    pub const MaxLocks: u32 = 16;
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
-impl system::Config for Test {
-	type Block = Block;
-	type Nonce = u32;
-	type BaseCallFilter = frame_support::traits::Everything;
+impl frame_system::Config for Test {
+    type BaseCallFilter = Everything;
 	type BlockWeights = ();
 	type BlockLength = ();
 	type DbWeight = ();
@@ -41,13 +37,41 @@ impl system::Config for Test {
 	type BlockHashCount = BlockHashCount;
 	type Version = ();
 	type PalletInfo = PalletInfo;
-	type AccountData = ();
+    type AccountData = pallet_balances::AccountData<u128>;
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
 	type SystemWeightInfo = ();
 	type SS58Prefix = SS58Prefix;
 	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
+    type MaxConsumers = ConstU32<16>;
+    // Additional types for recent Substrate
+    type RuntimeTask = (); // No-op for tests
+    type Nonce = u64;
+    type Block = Block;
+    type ExtensionsWeightInfo = ();
+    type SingleBlockMigrations = ();
+    type MultiBlockMigrator = ();
+    type PreInherents = ();
+    type PostInherents = ();
+    type PostTransactions = ();
+}
+
+impl pallet_balances::Config for Test {
+    type Balance = u128;
+    type DustRemoval = ();
+    type RuntimeEvent = RuntimeEvent;
+    type ExistentialDeposit = ExistentialDeposit;
+    type AccountStore = System;
+    type WeightInfo = ();
+    type MaxLocks = MaxLocks;
+    // Additional types for recent Substrate
+    type RuntimeHoldReason = ();
+    type RuntimeFreezeReason = ();
+    type ReserveIdentifier = [u8; 8];
+    type FreezeIdentifier = [u8; 8];
+    type MaxReserves = ConstU32<50>;
+    type MaxFreezes = ConstU32<50>;
+    type DoneSlashHandler = ();
 }
 
 impl pallet_identity::Config for Test {
@@ -58,8 +82,20 @@ impl pallet_identity::Config for Test {
 
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
-	RuntimeGenesisConfig { system: Default::default() }
+    let mut t = frame_system::GenesisConfig::<Test>::default()
 		.build_storage()
-		.unwrap()
-		.into()
+        .unwrap();
+
+    pallet_balances::GenesisConfig::<Test> {
+        balances: vec![
+            (0, 1_000_000_000_000),
+            (1, 1_000_000_000_000),
+            (2, 1_000_000_000_000),
+        ],
+        dev_accounts: None,
+    }
+    .assimilate_storage(&mut t)
+    .unwrap();
+
+    t.into()
 }

@@ -17,7 +17,7 @@ pub use weights::*;
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::{
-		dispatch::DispatchResult,
+        dispatch::DispatchResultWithPostInfo,
 		pallet_prelude::*,
 		traits::{Currency, LockIdentifier, LockableCurrency, WithdrawReasons},
 	};
@@ -81,23 +81,23 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Indicates that a signal parameter has been set.
-		SignalParameterSet(T::AccountId),
+        SignalParameterSet { who: T::AccountId },
 		/// Indicates that a signal lock has been created.
-		SignalLock(<T as frame_system::Config>::AccountId, BalanceOf<T>),
+        SignalLock { account: <T as frame_system::Config>::AccountId, amount: BalanceOf<T> },
 		/// Indicates that a signal lock has been extended.
-		SignalLockExtended(<T as frame_system::Config>::AccountId, BalanceOf<T>),
+        SignalLockExtended { account: <T as frame_system::Config>::AccountId, amount: BalanceOf<T> },
 		/// Indicates that a signal lock has been removed.
-		SignalUnlock(<T as frame_system::Config>::AccountId),
+        SignalUnlock { account: <T as frame_system::Config>::AccountId },
 		/// Represents a signal sent by an identity.
-		SignalSent(BoundedVec<u8, T::MaxSize>, T::AccountId),
+        SignalSent { signal: BoundedVec<u8, T::MaxSize>, who: T::AccountId },
 		/// Represents a signal sent by an identity for a particular application or service.
-		ServiceSignalSent(BoundedVec<u8, T::MaxSize>, BoundedVec<u8, T::MaxSize>, T::AccountId),
+        ServiceSignalSent { service_identifier: BoundedVec<u8, T::MaxSize>, url: BoundedVec<u8, T::MaxSize>, who: T::AccountId },
 		/// Indicates that an identity issued a new rating signal.
-		RatingSignalSent(T::AccountId),
+        RatingSignalSent { who: T::AccountId },
 		/// Indicates that an identity updated a rating signal.
-		RatingSignalUpdated(T::AccountId),
+        RatingSignalUpdated { who: T::AccountId },
 		/// Indicates that an identity revoked a rating signal.
-		RatingSignalRevoked(T::AccountId),
+        RatingSignalRevoked { who: T::AccountId },
 	}
 
 	#[pallet::error]
@@ -119,13 +119,12 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			name: BoundedVec<u8, T::MaxSize>,
 			value: u8,
-		) -> DispatchResult {
+        ) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
 			<SignalParameterList<T>>::insert(who.clone(), name.clone(), value);
-			Self::deposit_event(Event::SignalParameterSet(who));
-
-			Ok(())
+            Self::deposit_event(Event::SignalParameterSet { who });
+            Ok(().into())
 		}
 
 		/// Creates an on-chain event with a transaction hash as a pointer and a u8 as a rating
@@ -136,7 +135,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			target: BoundedVec<u8, T::MaxSize>,
 			rating: u8,
-		) -> DispatchResult {
+        ) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
 			ensure!(
@@ -161,10 +160,9 @@ pub mod pallet {
 				T::LockPrice::get().into(),
 				WithdrawReasons::all(),
 			);
-			Self::deposit_event(Event::SignalLock(who.clone(), T::LockPrice::get().into()));
-			Self::deposit_event(Event::RatingSignalSent(who));
-
-			Ok(())
+            Self::deposit_event(Event::SignalLock { account: who.clone(), amount: T::LockPrice::get().into() });
+            Self::deposit_event(Event::RatingSignalSent { who });
+            Ok(().into())
 		}
 
 		/// Updates an existing rating signal.
@@ -174,7 +172,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			target: BoundedVec<u8, T::MaxSize>,
 			new_rating: u8,
-		) -> DispatchResult {
+        ) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
 			ensure!(
@@ -193,10 +191,9 @@ pub mod pallet {
 				T::LockPrice::get().into(),
 				WithdrawReasons::all(),
 			);
-			Self::deposit_event(Event::SignalLockExtended(who.clone(), T::LockPrice::get().into()));
-			Self::deposit_event(Event::RatingSignalUpdated(who));
-
-			Ok(())
+            Self::deposit_event(Event::SignalLockExtended { account: who.clone(), amount: T::LockPrice::get().into() });
+            Self::deposit_event(Event::RatingSignalUpdated { who });
+            Ok(().into())
 		}
 
 		/// Puts out a signal cancelling a previous rating.
@@ -205,7 +202,7 @@ pub mod pallet {
 		pub fn revoke_rating_signal(
 			origin: OriginFor<T>,
 			target: BoundedVec<u8, T::MaxSize>,
-		) -> DispatchResult {
+        ) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
 			ensure!(
@@ -215,10 +212,9 @@ pub mod pallet {
 
 			<RatingSignalList<T>>::remove(who.clone(), target.clone());
 			T::Currency::remove_lock(T::LockId::get(), &who);
-			Self::deposit_event(Event::SignalUnlock(who.clone()));
-			Self::deposit_event(Event::RatingSignalRevoked(who));
-
-			Ok(())
+            Self::deposit_event(Event::SignalUnlock { account: who.clone() });
+            Self::deposit_event(Event::RatingSignalRevoked { who });
+            Ok(().into())
 		}
 
 		/// Creates an on-chain event with a signal payload defined as part of the transaction
@@ -230,10 +226,10 @@ pub mod pallet {
 		pub fn send_signal(
 			origin: OriginFor<T>,
 			signal: BoundedVec<u8, T::MaxSize>,
-		) -> DispatchResult {
+        ) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-			Self::deposit_event(Event::SignalSent(signal, who));
-			Ok(())
+            Self::deposit_event(Event::SignalSent { signal, who });
+            Ok(().into())
 		}
 
 		/// Sends a hexadecimal signal tagged for a particular application or service using Fennel
@@ -246,10 +242,10 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			service_identifier: BoundedVec<u8, T::MaxSize>,
 			url: BoundedVec<u8, T::MaxSize>,
-		) -> DispatchResult {
+        ) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-			Self::deposit_event(Event::ServiceSignalSent(service_identifier, url, who));
-			Ok(())
+            Self::deposit_event(Event::ServiceSignalSent { service_identifier, url, who });
+            Ok(().into())
 		}
 	}
 }
