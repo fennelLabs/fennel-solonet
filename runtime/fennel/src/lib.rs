@@ -245,20 +245,20 @@ impl pallet_certificate::Config for Runtime {
 impl pallet_identity::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = pallet_identity::weights::SubstrateWeight<Runtime>;
-    type MaxSize = ConstU32<1024>; // Updated to match benchmarking expectation
+    type MaxSize = ConstU32<1024>; // Updated to match original codebase
 }
 
 // Implement the Config trait for the keystore pallet in the runtime
 impl pallet_keystore::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = pallet_keystore::weights::SubstrateWeight<Runtime>;
-    type MaxSize = ConstU32<64>; // Adjust as needed for your use case
+    type MaxSize = ConstU32<1024>; // Updated to match original codebase
 }
 
 parameter_types! {
     pub const InfostratusLockId: [u8; 8] = *b"infosloc";
     pub const InfostratusLockPrice: u32 = 1_000_000_000; // set as needed
-    pub const InfostratusMaxSize: u32 = 64; // Adjust as needed
+    pub const InfostratusMaxSize: u32 = 1024; // Updated to match original codebase
 }
 
 impl pallet_infostratus::Config for Runtime {
@@ -273,7 +273,7 @@ impl pallet_infostratus::Config for Runtime {
 parameter_types! {
     pub const SignalLockId: [u8; 8] = *b"signallk";
     pub const SignalLockPrice: u32 = 1_000_000_000; // set as needed
-    pub const SignalMaxSize: u32 = 64; // adjust as needed
+    pub const SignalMaxSize: u32 = 1024; // Updated to match original codebase
 }
 
 impl pallet_signal::Config for Runtime {

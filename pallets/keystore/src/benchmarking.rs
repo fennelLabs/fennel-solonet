@@ -16,8 +16,10 @@ mod benchmarks {
 	#[benchmark]
     fn announce_key() -> Result<(), BenchmarkError> {
         let caller: T::AccountId = whitelisted_caller();
-        let fingerprint = BoundedVec::<u8, T::MaxSize>::try_from(b"fingerprint".to_vec()).unwrap();
-        let location = BoundedVec::<u8, T::MaxSize>::try_from(b"location".to_vec()).unwrap();
+        let fingerprint = BoundedVec::<u8, T::MaxSize>::try_from(b"fingerprint".to_vec())
+            .map_err(|_| BenchmarkError::Stop("Failed to create fingerprint"))?;
+        let location = BoundedVec::<u8, T::MaxSize>::try_from(b"location".to_vec())
+            .map_err(|_| BenchmarkError::Stop("Failed to create location"))?;
 		#[extrinsic_call]
         announce_key(RawOrigin::Signed(caller.clone()), fingerprint.clone(), location.clone());
         // Storage and event check
@@ -29,17 +31,21 @@ mod benchmarks {
     #[benchmark]
     fn announce_a_whole_lotta_keys() -> Result<(), BenchmarkError> {
         let caller: T::AccountId = whitelisted_caller();
-        let fingerprint = BoundedVec::<u8, T::MaxSize>::try_from(b"final_fingerprint".to_vec()).unwrap();
-        let location = BoundedVec::<u8, T::MaxSize>::try_from(b"final_location".to_vec()).unwrap();
+        let fingerprint = BoundedVec::<u8, T::MaxSize>::try_from(b"fingerprint".to_vec())
+            .map_err(|_| BenchmarkError::Stop("Failed to create fingerprint"))?;
+        let location = BoundedVec::<u8, T::MaxSize>::try_from(b"location".to_vec())
+            .map_err(|_| BenchmarkError::Stop("Failed to create location"))?;
         
-        // Create 100,000 keys in storage to test performance under heavy load
+        // Create 100,000 keys in storage to match original benchmarks
+        // This is an aggressive test for heavy load conditions
         for i in 0..100_000 {
             let loop_fingerprint = BoundedVec::<u8, T::MaxSize>::try_from(
                 format!("fingerprint{}", i).as_bytes().to_vec(),
-            ).unwrap();
+            ).map_err(|_| BenchmarkError::Stop("Failed to create loop fingerprint"))?;
+            
             let loop_location = BoundedVec::<u8, T::MaxSize>::try_from(
                 format!("location{}", i).as_bytes().to_vec(),
-            ).unwrap();
+            ).map_err(|_| BenchmarkError::Stop("Failed to create loop location"))?;
             
             Pallet::<T>::announce_key(
                 RawOrigin::Signed(caller.clone()).into(), 
@@ -61,9 +67,13 @@ mod benchmarks {
     #[benchmark]
     fn announce_key_with_long_vectors() -> Result<(), BenchmarkError> {
         let caller: T::AccountId = whitelisted_caller();
-        // Create large 1000-byte vectors
-        let fingerprint = BoundedVec::<u8, T::MaxSize>::try_from(vec![0u8; 1000]).unwrap();
-        let location = BoundedVec::<u8, T::MaxSize>::try_from(vec![1u8; 1000]).unwrap();
+        
+        // Try with 1000-byte vectors as in the original benchmarks
+        // Using proper error handling if the BoundedVec can't accommodate this size
+        let fingerprint = BoundedVec::<u8, T::MaxSize>::try_from(vec![0u8; 1000])
+            .map_err(|_| BenchmarkError::Stop("Failed to create fingerprint - MaxSize might be too small"))?;
+        let location = BoundedVec::<u8, T::MaxSize>::try_from(vec![1u8; 1000])
+            .map_err(|_| BenchmarkError::Stop("Failed to create location - MaxSize might be too small"))?;
         
         #[extrinsic_call]
         announce_key(RawOrigin::Signed(caller.clone()), fingerprint.clone(), location.clone());
@@ -79,12 +89,15 @@ mod benchmarks {
     fn announce_a_bunch_of_long_keys() -> Result<(), BenchmarkError> {
         let caller: T::AccountId = whitelisted_caller();
         
-        // Create 100,000 keys with long location values
+        // Create 100,000 keys with long location values as in the original benchmarks
         for i in 0..100_000 {
             let loop_fingerprint = BoundedVec::<u8, T::MaxSize>::try_from(
                 format!("fingerprint{}", i).as_bytes().to_vec(),
-            ).unwrap();
-            let loop_location = BoundedVec::<u8, T::MaxSize>::try_from(vec![i as u8 % 255; 1000]).unwrap();
+            ).map_err(|_| BenchmarkError::Stop("Failed to create loop fingerprint"))?;
+            
+            // Use 1000-byte vectors for long values
+            let loop_location = BoundedVec::<u8, T::MaxSize>::try_from(vec![i as u8 % 255; 1000])
+                .map_err(|_| BenchmarkError::Stop("Failed to create loop location - MaxSize might be too small"))?;
             
             Pallet::<T>::announce_key(
                 RawOrigin::Signed(caller.clone()).into(), 
@@ -93,9 +106,11 @@ mod benchmarks {
             )?;
         }
         
-        // Create the test key with large vectors
-        let fingerprint = BoundedVec::<u8, T::MaxSize>::try_from(vec![0u8; 1000]).unwrap();
-        let location = BoundedVec::<u8, T::MaxSize>::try_from(vec![1u8; 1000]).unwrap();
+        // Create the test key with large vectors (1000 bytes)
+        let fingerprint = BoundedVec::<u8, T::MaxSize>::try_from(vec![0u8; 1000])
+            .map_err(|_| BenchmarkError::Stop("Failed to create fingerprint - MaxSize might be too small"))?;
+        let location = BoundedVec::<u8, T::MaxSize>::try_from(vec![1u8; 1000])
+            .map_err(|_| BenchmarkError::Stop("Failed to create location - MaxSize might be too small"))?;
         
         #[extrinsic_call]
         announce_key(RawOrigin::Signed(caller.clone()), fingerprint.clone(), location.clone());
@@ -111,12 +126,22 @@ mod benchmarks {
     fn revoke_key() -> Result<(), BenchmarkError> {
         let caller: T::AccountId = whitelisted_caller();
         
-        let fingerprint = BoundedVec::<u8, T::MaxSize>::try_from(b"fingerprint".to_vec()).unwrap();
-        let location = BoundedVec::<u8, T::MaxSize>::try_from(b"location".to_vec()).unwrap();
+        let fingerprint = BoundedVec::<u8, T::MaxSize>::try_from(b"somekey".to_vec())
+            .map_err(|_| BenchmarkError::Stop("Failed to create fingerprint"))?;
+        
+        let location = BoundedVec::<u8, T::MaxSize>::try_from(vec![0u8; 32])
+            .map_err(|_| BenchmarkError::Stop("Failed to create location"))?;
+        
         // Pre-insert key
-        IssuedKeys::<T>::insert(&caller, &fingerprint, &location);
+        Pallet::<T>::announce_key(
+            RawOrigin::Signed(caller.clone()).into(),
+            fingerprint.clone(),
+            location
+        )?;
+        
 		#[extrinsic_call]
         revoke_key(RawOrigin::Signed(caller.clone()), fingerprint.clone());
+        
         // Storage and event check
         assert_eq!(IssuedKeys::<T>::get(&caller, &fingerprint), None);
         frame_system::Pallet::<T>::assert_last_event(Event::KeyRevoked { key: fingerprint, who: caller }.into());
@@ -127,20 +152,34 @@ mod benchmarks {
     fn revoke_one_of_many_keys() -> Result<(), BenchmarkError> {
         let caller: T::AccountId = whitelisted_caller();
         
-        // Add a special key to revoke
-        let target_fingerprint = BoundedVec::<u8, T::MaxSize>::try_from(b"target_key".to_vec()).unwrap();
-        let target_location = BoundedVec::<u8, T::MaxSize>::try_from(b"target_location".to_vec()).unwrap();
-        IssuedKeys::<T>::insert(&caller, &target_fingerprint, &target_location);
-        
-        // Create 100,000 additional keys
-        for i in 0..100_000 {
+        // Create 100,000 additional keys as in the original benchmark
+        for i in 1..100_000 {
             let loop_fingerprint = BoundedVec::<u8, T::MaxSize>::try_from(
                 format!("key{}", i).as_bytes().to_vec(),
-            ).unwrap();
-            let loop_location = BoundedVec::<u8, T::MaxSize>::try_from(vec![0; 32]).unwrap();
+            ).map_err(|_| BenchmarkError::Stop("Failed to create loop fingerprint"))?;
             
-            IssuedKeys::<T>::insert(&caller, &loop_fingerprint, &loop_location);
+            let loop_location = BoundedVec::<u8, T::MaxSize>::try_from(vec![0; 32])
+                .map_err(|_| BenchmarkError::Stop("Failed to create loop location"))?;
+            
+            Pallet::<T>::announce_key(
+                RawOrigin::Signed(caller.clone()).into(),
+                loop_fingerprint,
+                loop_location
+            )?;
         }
+        
+        // Add a special key to revoke
+        let target_fingerprint = BoundedVec::<u8, T::MaxSize>::try_from(b"somekey".to_vec())
+            .map_err(|_| BenchmarkError::Stop("Failed to create target fingerprint"))?;
+        
+        let target_location = BoundedVec::<u8, T::MaxSize>::try_from(vec![0; 32])
+            .map_err(|_| BenchmarkError::Stop("Failed to create target location"))?;
+        
+        Pallet::<T>::announce_key(
+            RawOrigin::Signed(caller.clone()).into(),
+            target_fingerprint.clone(),
+            target_location
+        )?;
         
         #[extrinsic_call]
         revoke_key(RawOrigin::Signed(caller.clone()), target_fingerprint.clone());
@@ -168,9 +207,7 @@ mod benchmarks {
     fn issue_a_ton_of_encryption_keys() -> Result<(), BenchmarkError> {
         let caller: T::AccountId = whitelisted_caller();
         
-        // Override the encryption key 100,000 times
-        // The storage will only keep the latest one, but this tests the performance
-        // when there are many sequential writes
+        // Override the encryption key 100,000 times as in the original benchmark
         for i in 0..100_000 {
             let temp_key = [i as u8 % 255; 32];
             Pallet::<T>::issue_encryption_key(
@@ -180,7 +217,7 @@ mod benchmarks {
         }
         
         // Now issue the final key we'll measure
-        let final_key = [42u8; 32];
+        let final_key = [0u8; 32];
         
         #[extrinsic_call]
         issue_encryption_key(RawOrigin::Signed(caller.clone()), final_key);
