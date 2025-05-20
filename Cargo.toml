@@ -59,7 +59,7 @@ sp-timestamp = { version = "36.0.0", default-features = false }
 substrate-frame-rpc-system = { version = "43.0.0", default-features = false }
 substrate-build-script-utils = { version = "11.0.0", default-features = false }
 codec = { version = "3.7.4", default-features = false, package = "parity-scale-codec" }
-frame-benchmarking = { version = "40.0.0", default-features = false }
+frame-benchmarking = { version = "40.1.0", default-features = false }
 frame-executive = { version = "40.0.0", default-features = false }
 frame-support = { version = "40.1.0", default-features = false }
 frame-system-benchmarking = { version = "40.0.0", default-features = false }
