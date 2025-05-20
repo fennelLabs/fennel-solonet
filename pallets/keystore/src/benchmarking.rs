@@ -153,7 +153,7 @@ mod benchmarks {
         let caller: T::AccountId = whitelisted_caller();
         
         // Create 100,000 additional keys as in the original benchmark
-        for i in 1..100_000 {
+        for i in 0..100_000 {
             let loop_fingerprint = BoundedVec::<u8, T::MaxSize>::try_from(
                 format!("key{}", i).as_bytes().to_vec(),
             ).map_err(|_| BenchmarkError::Stop("Failed to create loop fingerprint"))?;

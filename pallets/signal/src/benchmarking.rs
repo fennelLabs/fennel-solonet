@@ -38,6 +38,24 @@ mod benchmarks {
 		Ok(())
 	}
 
+    // Added to match our comprehensive benchmarking approach
+    #[benchmark]
+    fn set_signal_parameter_large_input() -> Result<(), BenchmarkError> {
+        // Create vector with 1000 bytes to match aggressive testing
+        let name = BoundedVec::<u8, <T as pallet::Config>::MaxSize>::try_from(vec![0u8; 1000])
+            .map_err(|_| BenchmarkError::Stop("Failed to create large parameter name - MaxSize might be too small"))?;
+        let caller: T::AccountId = whitelisted_caller();
+        T::Currency::make_free_balance_be(&caller, DepositBalanceOf::<T>::from(10_000u32));
+
+        #[extrinsic_call]
+        set_signal_parameter(RawOrigin::Signed(caller.clone()), name.clone(), 42);
+
+        assert!(SignalParameterList::<T>::contains_key(caller.clone(), name.clone()));
+        assert_eq!(SignalParameterList::<T>::get(caller.clone(), name.clone()), 42);
+        assert_last_event::<T>(Event::SignalParameterSet { who: caller }.into());
+        Ok(())
+    }
+
 	#[benchmark]
 	fn send_rating_signal() -> Result<(), BenchmarkError> {
         let target = BoundedVec::<u8, <T as pallet::Config>::MaxSize>::try_from(b"TEST".to_vec())
@@ -67,6 +85,25 @@ mod benchmarks {
         frame_system::Pallet::<T>::assert_last_event(<T as pallet::Config>::RuntimeEvent::from(Event::<T>::RatingSignalSent { who: caller.clone() }).into());
 		Ok(())
 	}
+
+    // Added to match our comprehensive benchmarking approach
+    #[benchmark]
+    fn send_rating_signal_large_input() -> Result<(), BenchmarkError> {
+        // Create 1000-byte target for aggressive testing
+        let target = BoundedVec::<u8, <T as pallet::Config>::MaxSize>::try_from(vec![1u8; 1000])
+            .map_err(|_| BenchmarkError::Stop("Failed to create large target - MaxSize might be too small"))?;
+        let caller: T::AccountId = whitelisted_caller();
+        T::Currency::make_free_balance_be(&caller, DepositBalanceOf::<T>::max_value());
+
+        #[extrinsic_call]
+        send_rating_signal(RawOrigin::Signed(caller.clone()), target.clone(), 5);
+
+        assert!(RatingSignalList::<T>::contains_key(caller.clone(), target.clone()));
+        assert_eq!(RatingSignalList::<T>::get(caller.clone(), target.clone()), 5);
+        frame_system::Pallet::<T>::assert_has_event(<T as pallet::Config>::RuntimeEvent::from(Event::<T>::SignalLock { account: caller.clone(), amount: T::LockPrice::get().into() }).into());
+        frame_system::Pallet::<T>::assert_last_event(<T as pallet::Config>::RuntimeEvent::from(Event::<T>::RatingSignalSent { who: caller.clone() }).into());
+        Ok(())
+    }
 
 	#[benchmark]
 	fn update_rating_signal() -> Result<(), BenchmarkError> {
@@ -149,7 +186,7 @@ mod benchmarks {
         T::Currency::make_free_balance_be(&caller, DepositBalanceOf::<T>::from(10_000u32));
 
         // Create 100,000 signals to match original benchmarks
-        for i in 0..100_000 {
+        for _ in 0..100_000 {
             Signal::<T>::send_signal(
                 RawOrigin::Signed(caller.clone()).into(), 
                 signal.clone()
@@ -162,69 +199,7 @@ mod benchmarks {
         assert_last_event::<T>(Event::SignalSent { signal, who: caller }.into());
 		Ok(())
 	}
-
-	#[benchmark]
-	fn send_service_signal() -> Result<(), BenchmarkError> {
-        let service_identifier = BoundedVec::<u8, <T as pallet::Config>::MaxSize>::try_from(b"TEST".to_vec())
-            .map_err(|_| BenchmarkError::Stop("Failed to create service identifier"))?;
-        let url = BoundedVec::<u8, <T as pallet::Config>::MaxSize>::try_from(b"TEST".to_vec())
-            .map_err(|_| BenchmarkError::Stop("Failed to create URL"))?;
-		let caller: T::AccountId = whitelisted_caller();
-        T::Currency::make_free_balance_be(&caller, DepositBalanceOf::<T>::from(10_000u32));
-
-        // Create 100,000 service signals to match original benchmarks
-        for i in 0..100_000 {
-            Signal::<T>::send_service_signal(
-                RawOrigin::Signed(caller.clone()).into(), 
-                service_identifier.clone(), 
-                url.clone()
-            )?;
-        }
-
-		#[extrinsic_call]
-        _(RawOrigin::Signed(caller.clone()), service_identifier.clone(), url.clone());
-
-        assert_last_event::<T>(Event::ServiceSignalSent { service_identifier, url, who: caller }.into());
-		Ok(())
-	}
-
-    // Added to match our comprehensive benchmarking approach
-    #[benchmark]
-    fn set_signal_parameter_large_input() -> Result<(), BenchmarkError> {
-        // Create vector with 1000 bytes to match aggressive testing
-        let name = BoundedVec::<u8, <T as pallet::Config>::MaxSize>::try_from(vec![0u8; 1000])
-            .map_err(|_| BenchmarkError::Stop("Failed to create large parameter name - MaxSize might be too small"))?;
-        let caller: T::AccountId = whitelisted_caller();
-        T::Currency::make_free_balance_be(&caller, DepositBalanceOf::<T>::from(10_000u32));
-
-        #[extrinsic_call]
-        set_signal_parameter(RawOrigin::Signed(caller.clone()), name.clone(), 42);
-
-        assert!(SignalParameterList::<T>::contains_key(caller.clone(), name.clone()));
-        assert_eq!(SignalParameterList::<T>::get(caller.clone(), name.clone()), 42);
-        assert_last_event::<T>(Event::SignalParameterSet { who: caller }.into());
-        Ok(())
-    }
-
-    // Added to match our comprehensive benchmarking approach
-    #[benchmark]
-    fn send_rating_signal_large_input() -> Result<(), BenchmarkError> {
-        // Create 1000-byte target for aggressive testing
-        let target = BoundedVec::<u8, <T as pallet::Config>::MaxSize>::try_from(vec![1u8; 1000])
-            .map_err(|_| BenchmarkError::Stop("Failed to create large target - MaxSize might be too small"))?;
-        let caller: T::AccountId = whitelisted_caller();
-        T::Currency::make_free_balance_be(&caller, DepositBalanceOf::<T>::max_value());
-
-        #[extrinsic_call]
-        send_rating_signal(RawOrigin::Signed(caller.clone()), target.clone(), 5);
-
-        assert!(RatingSignalList::<T>::contains_key(caller.clone(), target.clone()));
-        assert_eq!(RatingSignalList::<T>::get(caller.clone(), target.clone()), 5);
-        frame_system::Pallet::<T>::assert_has_event(<T as pallet::Config>::RuntimeEvent::from(Event::<T>::SignalLock { account: caller.clone(), amount: T::LockPrice::get().into() }).into());
-        frame_system::Pallet::<T>::assert_last_event(<T as pallet::Config>::RuntimeEvent::from(Event::<T>::RatingSignalSent { who: caller.clone() }).into());
-        Ok(())
-    }
-
+	
     // Added to match our comprehensive benchmarking approach
     #[benchmark]
     fn send_signal_large_input() -> Result<(), BenchmarkError> {
@@ -240,6 +215,39 @@ mod benchmarks {
         assert_last_event::<T>(Event::SignalSent { signal, who: caller }.into());
         Ok(())
     }
+
+	#[benchmark]
+	fn send_service_signal() -> Result<(), BenchmarkError> {
+        let service_identifier = BoundedVec::<u8, <T as pallet::Config>::MaxSize>::try_from(b"TEST".to_vec())
+            .map_err(|_| BenchmarkError::Stop("Failed to create service identifier"))?;
+        let url = BoundedVec::<u8, <T as pallet::Config>::MaxSize>::try_from(b"TEST".to_vec())
+            .map_err(|_| BenchmarkError::Stop("Failed to create URL"))?;
+		let caller: T::AccountId = whitelisted_caller();
+        T::Currency::make_free_balance_be(&caller, DepositBalanceOf::<T>::from(10_000u32));
+
+        // Create 100,000 service signals to match original benchmarks
+        for i in 0..100_000 {
+            let loop_service = BoundedVec::<u8, <T as pallet::Config>::MaxSize>::try_from(
+                format!("SERVICE{}", i).as_bytes().to_vec(),
+            ).map_err(|_| BenchmarkError::Stop("Failed to create loop service identifier"))?;
+            
+            let loop_url = BoundedVec::<u8, <T as pallet::Config>::MaxSize>::try_from(
+                format!("URL{}", i).as_bytes().to_vec(),
+            ).map_err(|_| BenchmarkError::Stop("Failed to create loop URL"))?;
+            
+            Signal::<T>::send_service_signal(
+                RawOrigin::Signed(caller.clone()).into(), 
+                loop_service, 
+                loop_url
+            )?;
+        }
+
+		#[extrinsic_call]
+        _(RawOrigin::Signed(caller.clone()), service_identifier.clone(), url.clone());
+
+        assert_last_event::<T>(Event::ServiceSignalSent { service_identifier, url, who: caller }.into());
+		Ok(())
+	}
 
     // Added to match our comprehensive benchmarking approach
     #[benchmark]
