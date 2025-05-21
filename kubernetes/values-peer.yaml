@@ -1,0 +1,73 @@
+# Peer Node deployment values
+image:
+  repository: ghcr.io/fennellabs/fennel-solonet
+  tag: latest  # Replace with appropriate tag
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 2Gi
+  limits:
+    cpu: 2000m
+    memory: 4Gi
+
+# Chain-specific configuration
+nodeKey:
+  # Will generate a random node key if not provided
+  type: random
+
+# Chain identity configuration
+extraLabels:
+  node-role: validator
+  chain-role: peer
+
+# Runtime arguments
+extraArgs:
+  - "--chain=/fennel/fennelSpecRaw.json"
+  - "--validator"
+  - "--name=peer-node"
+  - "--port=30334"
+  - "--rpc-port=9945"
+  - "--prometheus-port=9616"
+  - "--bootnodes=/dns/chain-node-node/tcp/30333/p2p/${CHAIN_NODE_KEY}"
+
+# Substrate-specific configuration
+substrate:
+  enabled: true
+  chain: "fennel"
+  chainType: "live"
+
+# Persistence configuration
+persistence:
+  enabled: true
+  size: "100Gi"
+  mountPath: "/data"
+
+# Secret containing validator keys
+secretEnv:
+  enabled: true
+  keys:
+    - name: SEED_PHRASE
+      valueFrom:
+        secretKeyRef:
+          name: fennel-peer-secrets
+          key: peer1suri
+    - name: CHAIN_NODE_KEY
+      valueFrom:
+        secretKeyRef:
+          name: fennel-node-keys
+          key: chain-node-key
+
+# Service configuration
+service:
+  # Use NodePort as per your original configuration
+  type: NodePort
+  ports:
+    - name: p2p
+      port: 30334
+      targetPort: 30334
+      nodePort: 30334
+    - name: rpc
+      port: 9945
+      targetPort: 9945
+      nodePort: 9945 
