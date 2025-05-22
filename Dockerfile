@@ -4,7 +4,7 @@ WORKDIR /fennel
 
 # Install cargo-chef and pre-fetch the wasm target once (minimal profile saves disk space)
 RUN cargo install cargo-chef \
-    && rustup target add wasm32-unknown-unknown --toolchain 1.84.1-x86_64-unknown-linux-gnu --profile minimal
+    && rustup target add wasm32-unknown-unknown --toolchain 1.84.1-x86_64-unknown-linux-gnu
 
 # Avoid extra git clone storage in cargo registry (optional but helps disk)
 ENV CARGO_NET_GIT_FETCH_WITH_CLI=true
