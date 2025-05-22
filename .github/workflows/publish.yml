@@ -57,13 +57,16 @@ jobs:
         run: |
           set -euo pipefail
           echo "🛠️  Running srtool to build compact runtime…"
-          HASH=$(docker run --rm \
+          # Build runtime inside srtool container (outputs verbose log to console)
+          docker run --rm \
             -v "${PWD}":/build \
             -e RUNTIME_DIR=runtime/fennel \
             -e PACKAGE=fennel-node-runtime \
             --workdir /build \
-            paritytech/srtool:1.84.1 \
-            bash -c "/srtool/build && sha256sum runtime/fennel/target/srtool/release/wbuild/fennel-node-runtime/fennel_node_runtime.compact.wasm | awk '{print \"0x\"\$1}'")
+            paritytech/srtool:1.84.1 /srtool/build
+            
+          # After the container exits the compiled Wasm lives in the mounted volume
+          HASH=$(sha256sum runtime/fennel/target/srtool/release/wbuild/fennel-node-runtime/fennel_node_runtime.compact.wasm | awk '{print "0x"$1}')
           echo "WASM_HASH=$HASH" >> $GITHUB_ENV
           echo "hash=$HASH" >> $GITHUB_OUTPUT
           echo "✅ Deterministic Wasm hash: $HASH"
