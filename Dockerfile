@@ -15,6 +15,27 @@ FROM base AS tester
 COPY . .
 RUN cargo test --features=runtime-benchmarks
 
+# --- New stage: deterministic WASM runtime build using srtool -----------------
+FROM docker.io/paritytech/srtool:1.84.1 AS srtool
+
+# The srtool image expects the sources to live in /build
+WORKDIR /build
+
+# Copy the full workspace so that frame pallets & dependencies are available
+COPY --chown=builder:builder . .
+
+# Tell srtool which crate contains the runtime. Adjust these paths/names if you
+# ever rename the runtime crate or move it to another folder.
+ENV RUNTIME_DIR=runtime/fennel
+ENV PACKAGE=fennel-node-runtime
+
+# Build the runtime in deterministic mode. The build script lives inside the
+# image under /scripts/build
+RUN /srtool/build
+
+# The compact deterministic wasm will be available below.
+ENV DETERMINISTIC_WASM_PATH=target/srtool/release/wbuild/fennel-node-runtime/fennel_node_runtime.compact.wasm
+
 # Builder stage - build with cached dependencies
 FROM base AS builder
 COPY --from=planner /fennel/recipe.json recipe.json
@@ -27,6 +48,14 @@ FROM docker.io/parity/base-bin:latest
 
 # Copy the node binary
 COPY --from=builder /fennel/target/release/fennel-node /usr/local/bin/fennel-node
+
+# Copy the deterministic wasm compiled with srtool (optional but convenient for
+# governance upgrades & CI verification)
+COPY --from=srtool /build/runtime/fennel/target/srtool/release/wbuild/fennel-node-runtime/fennel_node_runtime.compact.wasm /usr/local/bin/fennel_node_runtime.compact.wasm
+RUN test -f /usr/local/bin/fennel_node_runtime.compact.wasm
+
+ARG WASM_HASH=unknown
+LABEL io.parity.srtool.wasm-hash=${WASM_HASH}
 
 USER root
 RUN useradd -m -u 1001 -U -s /bin/sh -d /fennel fennel && \
