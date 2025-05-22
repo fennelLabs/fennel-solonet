@@ -59,6 +59,8 @@ jobs:
           echo "🛠️  Running srtool to build compact runtime…"
           HASH=$(docker run --rm \
             -v "${PWD}":/build \
+            -e RUNTIME_DIR=runtime/fennel \
+            -e PACKAGE=fennel-node-runtime \
             --workdir /build \
             paritytech/srtool:1.84.1 \
             bash -c "/srtool/build && sha256sum runtime/fennel/target/srtool/release/wbuild/fennel-node-runtime/fennel_node_runtime.compact.wasm | awk '{print \"0x\"\$1}'")
