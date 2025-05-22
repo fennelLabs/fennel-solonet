@@ -70,6 +70,7 @@ jobs:
       # It uses the `context` parameter to define the build's context as the set of files located in the specified path. For more information, see "[Usage](https://github.com/docker/build-push-action#usage)" in the README of the `docker/build-push-action` repository.
       # It uses the `tags` and `labels` parameters to tag and label the image with the output from the "meta" step.
       - name: Build and push Docker image
+        id: build
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -88,7 +89,7 @@ jobs:
           echo "Image name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}" > ./artifacts/image-info.txt
           echo "Tags:      ${{ steps.meta.outputs.tags }}" >> ./artifacts/image-info.txt
           echo "Wasm hash: ${{ env.WASM_HASH }}"          >> ./artifacts/image-info.txt
-          echo "Digest:    ${{ steps.build-and-push-image.outputs.digest }}" >> ./artifacts/image-info.txt
+          echo "Digest:    ${{ steps.build.outputs.digest }}" >> ./artifacts/image-info.txt
           echo "Created:   $(date -u +\"%Y-%m-%dT%H:%M:%SZ\")" >> ./artifacts/image-info.txt
           
       - name: Upload Docker image info artifact
