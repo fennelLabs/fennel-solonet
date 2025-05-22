@@ -61,7 +61,7 @@ jobs:
             -v "${PWD}":/build \
             --workdir /build \
             paritytech/srtool:1.84.1 \
-            bash -c "/srtool/build >/dev/null 2>&1 && sha256sum runtime/fennel/target/srtool/release/wbuild/fennel-node-runtime/fennel_node_runtime.compact.wasm | awk '{print \"0x\"\$1}'")
+            bash -c "/srtool/build && sha256sum runtime/fennel/target/srtool/release/wbuild/fennel-node-runtime/fennel_node_runtime.compact.wasm | awk '{print \"0x\"\$1}'")
           echo "WASM_HASH=$HASH" >> $GITHUB_ENV
           echo "hash=$HASH" >> $GITHUB_OUTPUT
           echo "✅ Deterministic Wasm hash: $HASH"
