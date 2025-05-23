@@ -23,6 +23,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # Free up additional disk space on GitHub runner (~10-15 GB)
+      - name: Free runner disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost /usr/share/swift /usr/local/lib/android /opt/hostedtoolcache || true
+          sudo apt-get clean
+          df -h
+
       # Set up Docker Buildx for efficient layer caching
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -64,7 +71,7 @@ jobs:
             -e PACKAGE=fennel-node-runtime \
             --workdir /build \
             paritytech/srtool:1.84.1 /srtool/build
-            
+
           # After the container exits the compiled Wasm lives in the mounted volume
           HASH=$(sha256sum runtime/fennel/target/srtool/release/wbuild/fennel-node-runtime/fennel_node_runtime.compact.wasm | awk '{print "0x"$1}')
           echo "WASM_HASH=$HASH" >> $GITHUB_ENV
@@ -85,7 +92,8 @@ jobs:
           build-args: |
             WASM_HASH=${{ env.WASM_HASH }}
           cache-from: type=gha
-                  
+          provenance: false
+          
       # Create and upload artifact containing image info
       - name: Output image info to artifact
         run: |
