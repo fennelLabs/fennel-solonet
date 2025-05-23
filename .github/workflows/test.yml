@@ -58,7 +58,6 @@ jobs:
           push: false
           load: false       # don't export layers to docker engine (saves disk)
           cache-from: type=gha
-          cache-to: type=gha,mode=max
-
+         
       - name: Verify node binary exists in builder stage output
         run: echo "Dockerfile syntax & builder stage compilation succeeded."
