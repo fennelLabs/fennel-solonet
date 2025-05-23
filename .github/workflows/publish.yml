@@ -85,8 +85,7 @@ jobs:
           build-args: |
             WASM_HASH=${{ env.WASM_HASH }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
-          
+                  
       # Create and upload artifact containing image info
       - name: Output image info to artifact
         run: |
