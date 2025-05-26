@@ -2934,9 +2934,9 @@ dependencies = [
 
 [[package]]
 name = "frame-executive"
-version = "40.0.0"
+version = "40.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "70f15cc5de17ca5665e65e8436a6faf816a2807e1bfe573fb9edcf1a81837d23"
+checksum = "0cc32bb3f500bb1b4661ad73bc270890178f067af38ed7e4ab2c85d03b18b0f8"
 dependencies = [
  "aquamarine",
  "frame-support",
