@@ -325,10 +325,10 @@ pub mod runtime {
 	pub type Sudo = pallet_sudo;
 
 	#[runtime::pallet_index(7)]
-	pub type Session = pallet_session;
+	pub type ValidatorManager = pallet_validator_manager;
 
 	#[runtime::pallet_index(8)]
-	pub type ValidatorManager = pallet_validator_manager;
+	pub type Session = pallet_session;
 
 	#[runtime::pallet_index(9)]
 	pub type Certificate = pallet_certificate;
@@ -350,3 +350,52 @@ pub mod runtime {
 }
 
 // No need for explicit re-export as the module is now public
+
+#[cfg(feature = "std")]
+impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
+	fn create_default_config() -> Vec<u8> {
+		create_genesis_config_with_default_endowment()
+	}
+
+	fn build_config(config: Vec<u8>) -> sp_genesis_builder::Result {
+		build_genesis_config(config)
+	}
+
+	fn get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
+		get_preset(id)
+	}
+
+	fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
+		genesis_config_presets::preset_names()
+	}
+}
+
+fn get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
+	let id = if let Some(id) = id {
+		id
+	} else {
+		return None;
+	};
+
+	genesis_config_presets::get_preset(id)
+}
+
+fn build_genesis_config(config: Vec<u8>) -> sp_genesis_builder::Result {
+	build_state(config)
+}
+
+fn create_genesis_config_with_default_endowment() -> Vec<u8> {
+	genesis_config_presets::get_preset(&sp_genesis_builder::DEV_RUNTIME_PRESET.into())
+		.expect("Development runtime preset is always available; qed.")
+}
+
+fn build_state(config: Vec<u8>) -> sp_genesis_builder::Result {
+	let genesis_config: RuntimeGenesisConfig = serde_json::from_slice(&config)
+		.map_err(|e| format!("Invalid JSON blob: {}", e))?;
+	let mut storage = genesis_config
+		.build_storage()
+		.map_err(|e| format!("Failed to build genesis storage: {}", e))?;
+	storage.top.insert(sp_core::storage::well_known_keys::CODE.to_vec(), 
+		WASM_BINARY.expect("WASM binary is not available").to_vec());
+	Ok(storage)
+}
