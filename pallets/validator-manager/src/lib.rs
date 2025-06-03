@@ -207,8 +207,17 @@ pub mod pallet {
 
 impl<T: Config> pallet_session::SessionManager<T::ValidatorId> for Pallet<T> {
     fn new_session(new_index: SessionIndex) -> Option<Vec<T::ValidatorId>> {
-        // Skip validator changes for the first two sessions to allow chain startup
-        if new_index <= 1 {
+        // For genesis session (0), provide initial validators from storage
+        if new_index == 0 {
+            let initial_validators = ValidatorsToAdd::<T>::get();
+            if !initial_validators.is_empty() {
+                return Some(initial_validators);
+            }
+            return None;
+        }
+
+        // Skip validator changes for session 1 to allow chain startup  
+        if new_index == 1 {
             return None;
         }
 
