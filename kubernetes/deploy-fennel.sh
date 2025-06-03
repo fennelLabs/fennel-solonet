@@ -27,7 +27,7 @@ kubectl create namespace $NAMESPACE --dry-run=client -o yaml | kubectl apply -f 
 # ✅ POLKADOT STANDARD: Skip chainspec secret creation - using embedded chainspec
 echo ""
 echo "Using embedded chainspec from Docker image (Polkadot standard approach)..."
-echo "Skipping chainspec secret creation - validators will use /fennel/fennelSpecRaw.json from image"
+echo "Skipping chainspec secret creation - validators will use built-in runtime presets"
 
 # Add Parity helm repository
 echo ""
@@ -47,8 +47,8 @@ helm upgrade --install $RELEASE_NAME $HELM_REPO_NAME/node \
 echo ""
 echo "=== Deployment Complete ==="
 echo ""
-echo "✅ Using Polkadot standard approach: embedded chainspec from GitHub Actions image"
-echo "   All validators now use the same chainspec: /fennel/fennelSpecRaw.json"
+echo "✅ Using Polkadot standard approach: embedded runtime presets from GitHub Actions image"
+echo "   All validators now use the same genesis configuration via built-in runtime presets"
 echo "   Genesis consistency guaranteed across k3s and external validators"
 echo ""
 echo "To check the status of your deployment:"

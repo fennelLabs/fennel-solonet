@@ -3,11 +3,11 @@
 
 image:
   repository: ghcr.io/corruptedaesthetic/uptodatefennelnetmp
-  tag: sha-204fa8e5891442d07ab060fb2ff7301703b5a4df
+  tag: sha-15cb152bffc1109a363da0d2d2e6cd498d5dc283
   pullPolicy: Always
 
 node:
-  chain: "fennel"
+  chain: "local"
   command: "fennel-node"
   isParachain: false
   
@@ -15,9 +15,9 @@ node:
   role: full  # Full node role for bootnodes
   replicas: 2  # Deploy 2 bootnodes for redundancy
   
-  # Chainspec configuration
-  customChainspec: true
-  customChainspecPath: /chainspec/fennelSpec.json
+  # ✅ POLKADOT STANDARD: Use built-in chainspec from fennel-node binary
+  customChainspec: false  # Use built-in local chainspec with Alice + Bob
+  customChainspecUrl: null  # No external chainspec needed
   
   # Chain data persistence
   chainData:
@@ -65,13 +65,6 @@ node:
     limits:
       cpu: 500m
       memory: 1Gi
-
-  # Mount chainspec from secret
-  extraSecretMounts:
-    - name: chainspec
-      mountPath: /chainspec
-      secretName: fennel-chainspec
-      readOnly: true
 
 # Security context
 podSecurityContext:

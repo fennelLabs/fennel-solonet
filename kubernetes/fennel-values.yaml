@@ -4,7 +4,7 @@
 # Configure the Docker image from your GitHub Actions build
 image:
   repository: ghcr.io/corruptedaesthetic/uptodatefennelnetmp  # GitHub Container Registry image
-  tag: sha-204fa8e5891442d07ab060fb2ff7301703b5a4df  # Specific build tag
+  tag: sha-15cb152bffc1109a363da0d2d2e6cd498d5dc283  # ✅ NEW: ValidatorManager/Session initialization fix
   pullPolicy: Always
 
 # Configure the node
