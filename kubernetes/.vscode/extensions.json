@@ -1,0 +1,27 @@
+{
+  "recommendations": [
+    // Kubernetes Extensions
+    "ms-kubernetes-tools.vscode-kubernetes-tools",  // Main Kubernetes extension
+    "redhat.vscode-yaml",                          // YAML support with schema validation
+    "ipedrazas.kubernetes-snippets",               // Kubernetes code snippets
+    
+    // Helm Extensions
+    "technosophos.vscode-helm",                    // Helm chart support
+    
+    // Additional Useful Extensions
+    "mindaro.mindaro",                              // Bridge to Kubernetes
+    "google.cloud-code",                            // Cloud Code (supports K8s)
+    "tim-koehler.helm-intellisense",               // Helm template intellisense
+    
+    // Docker Extensions (for image management)
+    "ms-azuretools.vscode-docker",                 // Docker support
+    
+    // Terminal and Script Support
+    "timonwong.shellcheck",                         // Shell script linting
+    "foxundermoon.shell-format",                    // Shell script formatting
+    
+    // General Development
+    "streetsidesoftware.code-spell-checker",       // Spell checker
+    "editorconfig.editorconfig"                     // EditorConfig support
+  ]
+} 

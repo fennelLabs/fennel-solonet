@@ -47,6 +47,11 @@ RUN cargo chef cook --release --recipe-path recipe.json
 COPY . .
 RUN cargo build --locked --release
 
+# Generate proper Fennel Network chainspec with Alice/Bob validators
+RUN ./target/release/fennel-node build-spec --chain local --disable-default-bootnode > /tmp/fennel-local.json && \
+    sed -i 's/"Local Testnet"/"Fennel Network"/g; s/"local_testnet"/"fennel_network"/g' /tmp/fennel-local.json && \
+    ./target/release/fennel-node build-spec --chain /tmp/fennel-local.json --raw --disable-default-bootnode > /fennel/fennelSpecRaw.json
+
 # Runtime stage - final image with minimal components
 FROM docker.io/parity/base-bin:latest
 
@@ -69,10 +74,14 @@ RUN useradd -m -u 1001 -U -s /bin/sh -d /fennel fennel && \
 # check if executable works in this container
 	/usr/local/bin/fennel-node --version
 
+# Copy generated chainspec with Alice/Bob validators
+COPY --from=builder /fennel/fennelSpecRaw.json /fennel/fennelSpecRaw.json
+RUN chown fennel:fennel /fennel/fennelSpecRaw.json
+
 USER fennel
 
 EXPOSE 9930 9933 9944 30333 30334
 VOLUME ["/data"]
 
 # Use node binary as entrypoint (Parity standard practice)
-ENTRYPOINT ["/usr/local/bin/fennel-node"] 
+ENTRYPOINT ["/usr/local/bin/fennel-node"]

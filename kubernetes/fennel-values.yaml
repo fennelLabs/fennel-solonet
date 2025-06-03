@@ -1,0 +1,117 @@
+# Fennel Solochain Kubernetes Deployment Values
+# Using Parity helm-charts/node
+
+# Configure the Docker image from your GitHub Actions build
+image:
+  repository: ghcr.io/corruptedaesthetic/uptodatefennelnetmp  # GitHub Container Registry image
+  tag: sha-204fa8e5891442d07ab060fb2ff7301703b5a4df  # Specific build tag
+  pullPolicy: Always
+
+# Configure the node
+node:
+  # ✅ POLKADOT STANDARD: Use built-in 'local' chainspec with Alice + Bob validators
+  chain: "local"  # Built-in chainspec from fennel-node binary with Alice + Bob validators
+  command: "fennel-node"  # Your binary name from Dockerfile
+  
+  # Since this is a solochain, not a parachain
+  isParachain: false
+  
+  # Role configuration - set to "authority" for validators
+  role: authority  # Changed back to authority since we have proper chainspec
+  
+  # Number of validator nodes to deploy
+  # Start with 2 (like Alice and Bob in your testnet)
+  replicas: 2
+  
+  # ✅ POLKADOT STANDARD: Use built-in chainspec from fennel-node binary
+  customChainspec: false  # Use built-in local chainspec with Alice + Bob
+  # customChainspecPath: "/fennel/fennelSpecRaw.json"  # Embedded chainspec lacks validators
+  # You can either mount the chainspec or download it
+  customChainspecUrl: null  # Set if you want to download from URL
+  
+  # Chain data persistence
+  chainData:
+    volumeSize: 50Gi  # Reduced for development
+    storageClass: ""  # Use default storage class
+    pruning: 0  # Set to 0 for archive nodes
+    database: rocksdb  # or paritydb
+  
+  # Keystore persistence
+  chainKeystore:
+    volumeSize: 100Mi  # Small size for keys
+    mountInMemory:
+      enabled: false  # Keep keys persistent
+  
+  # Node keys for stable peer identities
+  persistGeneratedNodeKey: true
+  
+  # Prometheus metrics
+  prometheus:
+    enabled: true
+    port: 9615
+  
+  # RPC configuration
+  rpcCors: all  # CORS setting for RPC
+  allowUnsafeRpcMethods: true  # Enable unsafe RPC methods for author_rotateKeys
+  
+  # Service configuration
+  perNodeServices:
+    # API service for RPC/WS access
+    apiService:
+      enabled: true
+      type: ClusterIP  # Use port-forward for local access
+      rpcPort: 9944
+      prometheusPort: 9615
+    
+    # P2P service for node communication
+    relayP2pService:
+      enabled: true
+      type: ClusterIP  # Changed from NodePort for internal communication
+      port: 30333
+      publishUnreadyAddresses: true
+  
+  # ✅ POLKADOT STANDARD: Use embedded session keys from chainspec
+  # The 'local' chainspec in the Docker image already has Alice/Bob session keys configured
+  # No need for manual key injection - following Polkadot ecosystem standard
+  keys: []
+  
+  # Additional flags for your node
+  flags:
+    # Enable detailed logging for development
+    - "-lruntime=debug"
+    # ✅ POLKADOT STANDARD: Use session keys from keystore instead of --alice flag
+    # - "--alice"  # Removed - using dynamic session keys instead
+    # - "--force-authoring"  # Removed - dev chainspec includes this automatically
+  
+  # Enable offchain workers if needed
+  enableOffchainIndexing: false
+  
+  # ✅ POLKADOT STANDARD: Removed chainspec secret mount
+  # extraSecretMounts:
+  #   - name: chainspec
+  #     mountPath: /chainspec
+  #     secretName: fennel-chainspec
+  #     readOnly: true
+  
+  # Resources
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+
+# Service Monitor for Prometheus integration
+serviceMonitor:
+  enabled: false  # Disable for now
+
+# Pod management
+podSecurityContext:
+  runAsUser: 1001  # Use fennel user instead of parity to access /fennel directory
+  runAsGroup: 1001  # Use fennel group instead of parity
+  fsGroup: 1001  # Use fennel group for file system access
+
+# Ingress for external RPC access (optional)
+ingress:
+  enabled: false  # Disable for local development 

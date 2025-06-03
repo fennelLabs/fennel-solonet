@@ -1,0 +1,84 @@
+# Fennel Bootnode Configuration for Public Network
+# Dedicated bootnodes for external validator discovery
+
+image:
+  repository: ghcr.io/corruptedaesthetic/uptodatefennelnetmp
+  tag: sha-204fa8e5891442d07ab060fb2ff7301703b5a4df
+  pullPolicy: Always
+
+node:
+  chain: "fennel"
+  command: "fennel-node"
+  isParachain: false
+  
+  # Bootnode role - not a validator
+  role: full  # Full node role for bootnodes
+  replicas: 2  # Deploy 2 bootnodes for redundancy
+  
+  # Chainspec configuration
+  customChainspec: true
+  customChainspecPath: /chainspec/fennelSpec.json
+  
+  # Chain data persistence
+  chainData:
+    volumeSize: 100Gi  # Larger for public network
+    storageClass: ""
+    pruning: 1000  # Prune old blocks to save space
+    database: rocksdb
+  
+  # Stable node keys for bootnodes
+  persistGeneratedNodeKey: true
+  
+  # Network configuration for public access
+  rpcCors: all
+  allowUnsafeRpcMethods: false  # Disable unsafe methods on bootnodes
+  
+  # Public service configuration
+  perNodeServices:
+    # API service - disable RPC on bootnodes for security
+    apiService:
+      enabled: false
+    
+    # P2P service - public access for peer discovery
+    relayP2pService:
+      enabled: true
+      type: LoadBalancer  # Public access via LoadBalancer
+      port: 30333
+      publishUnreadyAddresses: true
+      annotations:
+        # Cloud provider specific annotations for public IP
+        service.beta.kubernetes.io/aws-load-balancer-type: "nlb"  # AWS example
+        # service.beta.kubernetes.io/azure-load-balancer-external: "true"  # Azure example
+        # cloud.google.com/load-balancer-type: "External"  # GCP example
+  
+  # Additional bootnode flags
+  flags:
+    - "--no-telemetry"  # Disable telemetry for bootnodes
+    - "--max-runtime-instances=8"
+    - "--runtime-cache-size=2"  # Optimize for P2P only
+  
+  # Resources for bootnodes
+  resources:
+    requests:
+      cpu: 250m      # Lower CPU for bootnodes
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+
+  # Mount chainspec from secret
+  extraSecretMounts:
+    - name: chainspec
+      mountPath: /chainspec
+      secretName: fennel-chainspec
+      readOnly: true
+
+# Security context
+podSecurityContext:
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+# Disable monitoring on bootnodes
+serviceMonitor:
+  enabled: false 
