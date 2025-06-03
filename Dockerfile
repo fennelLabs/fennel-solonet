@@ -47,6 +47,7 @@ RUN cargo chef cook --release --recipe-path recipe.json
 COPY . .
 RUN cargo build --locked --release
 
+
 # Runtime stage - final image with minimal components
 FROM docker.io/parity/base-bin:latest
 
@@ -75,4 +76,4 @@ EXPOSE 9930 9933 9944 30333 30334
 VOLUME ["/data"]
 
 # Use node binary as entrypoint (Parity standard practice)
-ENTRYPOINT ["/usr/local/bin/fennel-node"] 
+ENTRYPOINT ["/usr/local/bin/fennel-node"]
