@@ -1,0 +1,42 @@
+# Phase 1: Alice Bootstrap Overlay
+# Single validator bootstrap with Alice development keys
+
+node:
+  replicas: 1  # Start with Alice only
+  
+  # Bootstrap flags for single validator
+  flags:
+    - "--alice"  # Alice development session keys for bootstrap
+    - "--force-authoring"  # Required for single validator to produce blocks
+    - "-lruntime=debug"  # Debug logging for development
+  
+  # Static node key configuration (Alice uses validator0.key)
+  nodeKeyFile: "/keys/validator0.key"
+  
+  # Backup strategy: if static key mounting fails, fall back to generated key
+  persistGeneratedNodeKey: true  # ✅ BACKUP: Safety net if static keys fail
+  
+  # Allow unsafe RPC methods for key rotation
+  allowUnsafeRpcMethods: true
+  
+  # Enable RPC service for key rotation and monitoring
+  perNodeServices:
+    apiService:
+      enabled: true
+      type: ClusterIP
+      rpcPort: 9944
+      prometheusPort: 9615
+
+# Static validator node keys - PRIMARY approach for production
+extraSecretMounts:
+  - name: validator-keys
+    mountPath: /keys
+    secretName: validator-node-keys
+    subPath: ""
+    readOnly: true
+
+# BOOTSTRAP PHASE: Alice (pod-0) always uses validator0.key  
+# No ordinal template needed in bootstrap - only 1 replica
+
+# Note: Static node keys (above) handle network identity.
+# Session keys for consensus are still handled by --alice flag + later rotation via RPC. 

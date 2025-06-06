@@ -1,0 +1,79 @@
+# Phase 0: Dedicated Bootnodes Overlay
+# Slim bootnode configuration with static keys for permanent network discovery
+
+node:
+  role: full  # Non-validator, discovery-only role
+  replicas: 2  # Deploy 2 bootnodes for redundancy
+  
+  # Bootnode-specific flags for production network discovery
+  flags:
+    - "--no-telemetry"  # No telemetry for production bootnodes
+    - "--max-runtime-instances=8"
+    - "--runtime-cache-size=2"  # Optimize for P2P only
+  
+  # Static node key configuration (preferred method for bootnodes)
+  # Each pod will use its ordinal-specific key file: pod-0→boot0.key, pod-1→boot1.key
+  nodeKeyFile: "/keys/boot{{ .StatefulSet.index }}.key"
+  
+  # Backup strategy: if static key mounting fails, fall back to generated key
+  persistGeneratedNodeKey: true  # ✅ BACKUP: Safety net if static keys fail
+  
+  # Chain data with fast pruning
+  chainData:
+    volumeSize: 50Gi  # Smaller for pruned bootnodes
+    pruning: 1000  # Fast pruning
+  
+  # Security: Disable RPC on bootnodes
+  perNodeServices:
+    apiService:
+      enabled: false  # No RPC access on bootnodes
+    relayP2pService:
+      enabled: true
+      type: ClusterIP  # Internal access for validators
+      port: 30333
+      publishUnreadyAddresses: true
+  
+  # Disable unsafe RPC methods
+  allowUnsafeRpcMethods: false
+  
+  # Optimized resources for discovery-only nodes
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+
+  # Production hardening: Health checks and anti-affinity
+  health:
+    livenessProbe:
+      enabled: true
+      periodSeconds: 30
+      timeoutSeconds: 10
+    readinessProbe:
+      enabled: true
+      periodSeconds: 10
+      timeoutSeconds: 5
+
+  # Anti-affinity: Spread bootnodes across different nodes for resilience
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app.kubernetes.io/name: fennel-bootnodes
+            topologyKey: kubernetes.io/hostname
+
+# Static key mounts - contains boot0.key and boot1.key
+# Each pod will use its ordinal-specific key file
+extraSecretMounts:
+  - name: bootnode-keys
+    mountPath: /keys
+    secretName: bootnode-static-keys
+    readOnly: true
+    subPath: ""  # Mount whole secret folder so files are accessible as /keys/<filename>
+
+# Note: No init container needed - direct flag handles ordinal selection 

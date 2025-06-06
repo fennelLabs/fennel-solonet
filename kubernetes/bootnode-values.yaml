@@ -3,7 +3,7 @@
 
 image:
   repository: ghcr.io/corruptedaesthetic/uptodatefennelnetmp
-  tag: sha-15cb152bffc1109a363da0d2d2e6cd498d5dc283
+  tag: sha-2ea7777df54a4bc1d113591d6a2351930bae3806
   pullPolicy: Always
 
 node:

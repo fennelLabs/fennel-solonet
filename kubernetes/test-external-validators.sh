@@ -1,12 +1,25 @@
 #!/bin/bash
 
-# Test Charlie, Dave, and Eve as External Validators (FINAL WORKING VERSION)
-# This version fixes Docker permissions and uses proper fennel-node arguments
+# External Validator Testing Tool (Charlie, Dave, Eve)
+# Tests the complete external validator onboarding workflow
+#
+# ✅ UPDATED: Now uses Docker image with ValidatorManager SessionManager genesis fix
+#    Current: sha-2ea7777... (NEW - contains ValidatorManager genesis fix + cleanup)
+#    Previous: sha-204fa8e... (OLD - missing ValidatorManager SessionManager fix)
+#
+# This script demonstrates:
+# - Starting external validators with proper fennel-node configuration
+# - Session key generation and verification
+# - ValidatorManager registration workflow
+# - Health monitoring and connectivity testing
 
 set -e
 
-echo "👥 Testing Charlie, Dave & Eve as External Validators (FINAL)"
-echo "============================================================"
+echo "👥 Testing Charlie, Dave & Eve as External Validators"
+echo "===================================================="
+echo "✅ Using Docker image: ghcr.io/corruptedaesthetic/uptodatefennelnetmp:sha-2ea7777df54a4bc1d113591d6a2351930bae3806"
+echo "🔧 NEW: Contains ValidatorManager SessionManager genesis fix + repository cleanup"
+echo ""
 
 # Well-known development account IDs
 CHARLIE_ACCOUNT="5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y"
@@ -43,7 +56,7 @@ start_test_validator() {
         -p "$((port + 100)):30333" \
         -v "$data_dir:/data" \
         --user "$(id -u):$(id -g)" \
-        ghcr.io/corruptedaesthetic/uptodatefennelnetmp:sha-204fa8e5891442d07ab060fb2ff7301703b5a4df \
+        ghcr.io/corruptedaesthetic/uptodatefennelnetmp:sha-2ea7777df54a4bc1d113591d6a2351930bae3806 \
         --name "Test$name" \
         --base-path /data \
         --dev \
@@ -343,9 +356,9 @@ main() {
     fi
     
     # Check if image exists
-    if ! docker image inspect ghcr.io/corruptedaesthetic/uptodatefennelnetmp:sha-204fa8e5891442d07ab060fb2ff7301703b5a4df &> /dev/null; then
+    if ! docker image inspect ghcr.io/corruptedaesthetic/uptodatefennelnetmp:sha-2ea7777df54a4bc1d113591d6a2351930bae3806 &> /dev/null; then
         echo "⚠️  Fennel Docker image not found locally. Pulling..."
-        docker pull ghcr.io/corruptedaesthetic/uptodatefennelnetmp:sha-204fa8e5891442d07ab060fb2ff7301703b5a4df
+        docker pull ghcr.io/corruptedaesthetic/uptodatefennelnetmp:sha-2ea7777df54a4bc1d113591d6a2351930bae3806
     fi
     
     while true; do
