@@ -1,0 +1,105 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: fennel-network-policy
+  namespace: fennel
+  labels:
+    app.kubernetes.io/name: fennel
+    app.kubernetes.io/component: security
+spec:
+  # Apply to all fennel pods
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: fennel-solochain
+  
+  policyTypes:
+    - Ingress
+    - Egress
+  
+  ingress:
+    # Allow P2P communication on port 30333
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: fennel-solochain
+        - namespaceSelector: {}  # Allow from other namespaces (external validators)
+      ports:
+        - protocol: TCP
+          port: 30333
+    
+    # Allow RPC access only within namespace (for port-forward)
+    - from:
+        - podSelector: {}
+      ports:
+        - protocol: TCP
+          port: 9944
+        - protocol: TCP
+          port: 9615  # Prometheus metrics
+  
+  egress:
+    # Allow DNS resolution
+    - to: []
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    
+    # Allow P2P communication
+    - to: []
+      ports:
+        - protocol: TCP
+          port: 30333
+    
+    # Allow HTTPS for container registry
+    - to: []
+      ports:
+        - protocol: TCP
+          port: 443
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy  
+metadata:
+  name: fennel-bootnodes-policy
+  namespace: fennel
+  labels:
+    app.kubernetes.io/name: fennel-bootnodes
+    app.kubernetes.io/component: security
+spec:
+  # Apply to bootnode pods only
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: fennel-bootnodes
+  
+  policyTypes:
+    - Ingress
+    - Egress
+  
+  ingress:
+    # Allow P2P from anywhere (discovery role)
+    - from: []
+      ports:
+        - protocol: TCP
+          port: 30333
+  
+  egress:
+    # Allow DNS
+    - to: []
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    
+    # Allow P2P outbound
+    - to: []
+      ports:
+        - protocol: TCP
+          port: 30333
+    
+    # Allow HTTPS for registry
+    - to: []
+      ports:
+        - protocol: TCP
+          port: 443 

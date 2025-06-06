@@ -1,0 +1,30 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: fennel-validators-pdb
+  namespace: fennel
+  labels:
+    app.kubernetes.io/name: fennel
+    app.kubernetes.io/component: resilience
+spec:
+  # Ensure at least 1 validator stays up during disruptions
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: fennel-solochain
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: fennel-bootnodes-pdb
+  namespace: fennel
+  labels:
+    app.kubernetes.io/name: fennel-bootnodes
+    app.kubernetes.io/component: resilience
+spec:
+  # Ensure at least 1 bootnode stays up for discovery
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: fennel-bootnodes 

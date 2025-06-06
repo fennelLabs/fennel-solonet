@@ -4,7 +4,7 @@
 # Configure the Docker image from your GitHub Actions build
 image:
   repository: ghcr.io/corruptedaesthetic/uptodatefennelnetmp  # GitHub Container Registry image
-  tag: sha-15cb152bffc1109a363da0d2d2e6cd498d5dc283  # ✅ NEW: ValidatorManager/Session initialization fix
+  tag: sha-2ea7777df54a4bc1d113591d6a2351930bae3806  # ✅ NEW: ValidatorManager SessionManager genesis fix + repository cleanup
   pullPolicy: Always
 
 # Configure the node
@@ -20,8 +20,8 @@ node:
   role: authority  # Changed back to authority since we have proper chainspec
   
   # Number of validator nodes to deploy
-  # Start with 2 (like Alice and Bob in your testnet)
-  replicas: 2
+  # Match the built-in genesis configuration (Alice + Bob)
+  replicas: 2  # Genesis-compliant: Both validators as designed
   
   # ✅ POLKADOT STANDARD: Use built-in chainspec from fennel-node binary
   customChainspec: false  # Use built-in local chainspec with Alice + Bob
@@ -43,7 +43,20 @@ node:
       enabled: false  # Keep keys persistent
   
   # Node keys for stable peer identities
-  persistGeneratedNodeKey: true
+  # FALLBACK BEHAVIOR: persistGeneratedNodeKey only works with persistent PVC
+  # 
+  # ✅ STATIC KEYS (Primary - recommended):
+  #   - Survive PVC loss, node rescheduling, cluster rebuilds  
+  #   - Deterministic peer-ID across all scenarios
+  #   - Mounted via Secret + --node-key-file flag
+  #
+  # ⚠️ PERSISTENT GENERATED (Fallback - PVC dependent):
+  #   - Only stable while basePath PVC exists
+  #   - If PVC deleted/lost → new random peer-ID generated
+  #   - Auto-generates key to <basePath>/network/secret_ed25519
+  #   - Good for development, brittle for production
+  #
+  persistGeneratedNodeKey: true  # Safety net - requires persistent PVC to work
   
   # Prometheus metrics
   prometheus:
@@ -77,11 +90,11 @@ node:
   
   # Additional flags for your node
   flags:
+    # Multi-validator setup: Each pod gets its identity via pod index (Alice=0, Bob=1)
     # Enable detailed logging for development
     - "-lruntime=debug"
-    # ✅ POLKADOT STANDARD: Use session keys from keystore instead of --alice flag
-    # - "--alice"  # Removed - using dynamic session keys instead
-    # - "--force-authoring"  # Removed - dev chainspec includes this automatically
+    # ✅ PRODUCTION-LIKE: Force authoring for ValidatorManager PoA networks
+    - "--force-authoring"  # Required for initial block production with ValidatorManager
   
   # Enable offchain workers if needed
   enableOffchainIndexing: false
@@ -114,4 +127,18 @@ podSecurityContext:
 
 # Ingress for external RPC access (optional)
 ingress:
-  enabled: false  # Disable for local development 
+  enabled: false  # Disable for local development
+
+# Security defaults
+serviceAccount:
+  create: true
+  annotations: {}
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: false  # Polkadot needs write access
+  runAsNonRoot: true
+  runAsUser: 1000 

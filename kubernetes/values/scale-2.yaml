@@ -1,0 +1,42 @@
+# Phase 2: Scale to 2 Validators Overlay  
+# Add Bob to the network (Alice + Bob)
+
+node:
+  replicas: 2  # Scale to Alice (pod-0) + Bob (pod-1)
+  
+  # Clean flags - no development keys, default validator behavior  
+  flags:
+    - "-lruntime=debug"  # Keep debug logging
+    - "--force-authoring"  # Required for ValidatorManager PoA networks
+  
+  # Static node key configuration with ordinal template
+  # ORDINAL TEMPLATE: Auto-scaling ready - add validatorN.key to Secret for pod-N
+  nodeKeyFile: "/keys/validator{{ .StatefulSet.index }}.key"  # Ordinal magic: pod-0→validator0.key, pod-1→validator1.key
+  
+  # Backup strategy: if static key mounting fails, fall back to generated key
+  persistGeneratedNodeKey: true  # ✅ BACKUP: Safety net if static keys fail
+  
+  # Security: Disable unsafe RPC after key rotation is complete
+  # During deployment, you can temporarily enable with: --set node.allowUnsafeRpcMethods=true
+  allowUnsafeRpcMethods: false  # Production security - no unsafe RPC methods
+  
+  # Enable RPC service for both validators
+  perNodeServices:
+    apiService:
+      enabled: true
+      type: ClusterIP
+      rpcPort: 9944
+      prometheusPort: 9615
+
+# Static validator node keys - PRIMARY approach for production
+extraSecretMounts:
+  - name: validator-keys
+    mountPath: /keys
+    secretName: validator-node-keys
+    subPath: ""
+    readOnly: true
+
+# AUTO-SCALING READY: Ordinal template automatically selects correct key
+# pod-0 (Alice) → validator0.key, pod-1 (Bob) → validator1.key
+# To scale: 1) Add validator2.key to Secret, 2) helm upgrade --set node.replicas=3
+# pod-2 will automatically use validator2.key via {{ .StatefulSet.index }} template 

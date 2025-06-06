@@ -1,0 +1,57 @@
+# Testing Environment Overlay
+# Optimized for fast iteration while maintaining production patterns
+
+node:
+  replicas: 2  # Test Alice + Bob
+  
+  # Testing-optimized flags
+  flags:
+    - "-lruntime=debug"
+    - "--force-authoring"
+    - "--node-key-file=/keys/validator{{ .StatefulSet.index }}.key"  # Still use static keys
+    - "--unsafe-rpc-external"  # Enable for testing automation
+    - "--rpc-methods=unsafe"   # Enable author_rotateKeys for automated tests
+  
+  # Override base security for testing convenience
+  persistGeneratedNodeKey: false  # Force static keys even in testing
+  allowUnsafeRpcMethods: true     # Override production security for testing
+  
+  # Faster testing resources
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+  
+  # Smaller storage for testing
+  chainData:
+    volumeSize: 20Gi  # Smaller test volumes
+    pruning: 1000     # Aggressive pruning for testing
+
+  # Testing-friendly RPC
+  perNodeServices:
+    apiService:
+      enabled: true
+      type: ClusterIP
+      rpcPort: 9944
+      prometheusPort: 9615
+
+# Use same static validator keys for testing
+extraSecretMounts:
+  - name: validator-keys
+    mountPath: /keys
+    secretName: validator-node-keys
+    subPath: ""
+    readOnly: true
+
+# Testing annotations for easy identification
+annotations:
+  environment: "testing"
+  purpose: "fast-iteration"
+  
+# Testing-specific labels
+labels:
+  test-scenario: "multi-validator"
+  automation-friendly: "true" 
