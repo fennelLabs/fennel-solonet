@@ -95,6 +95,8 @@ node:
     - "-lruntime=debug"
     # ✅ PRODUCTION-LIKE: Force authoring for ValidatorManager PoA networks
     - "--force-authoring"  # Required for initial block production with ValidatorManager
+    # ✅ ECOSYSTEM STANDARD: Enable external Prometheus metrics access
+    - "--prometheus-external"  # Allow external access to metrics on port 9615
   
   # Enable offchain workers if needed
   enableOffchainIndexing: false

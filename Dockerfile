@@ -72,7 +72,10 @@ RUN useradd -m -u 1001 -U -s /bin/sh -d /fennel fennel && \
 
 USER fennel
 
-EXPOSE 9930 9933 9944 30333 30334
+EXPOSE 9933 9944 30333 9615
+# Removed ports:
+# - 9930: Removed unless specific reverse-proxy need (ecosystem standard)
+# - 30334: Removed - only needed for relay-within-relay processes
 VOLUME ["/data"]
 
 # Use node binary as entrypoint (Parity standard practice)
