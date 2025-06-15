@@ -25,6 +25,9 @@ use sp_genesis_builder::{self, PresetId};
 use sp_keyring::Sr25519Keyring;
 use crate::SessionKeys;
 
+/// Identifier for the staging preset.
+pub const STAGING_RUNTIME_PRESET: &str = "staging";
+
 // Returns the genesis config presets populated with given parameters.
 fn testnet_genesis(
 	initial_authorities: Vec<(AuraId, GrandpaId)>,
@@ -111,11 +114,38 @@ pub fn local_config_genesis() -> Value {
 	)
 }
 
+/// Return the staging genesis config preset.
+pub fn staging_config_genesis() -> Value {
+	testnet_genesis(
+		// 1) Authorities: Alice & Bob Aura/Grandpa IDs
+		vec![
+			(
+				Sr25519Keyring::Alice.public().into(),
+				sp_keyring::Ed25519Keyring::Alice.public().into(),
+			),
+			(
+				Sr25519Keyring::Bob.public().into(),
+				sp_keyring::Ed25519Keyring::Bob.public().into(),
+			),
+		],
+		// 2) Sudo/root key: Alice
+		Sr25519Keyring::Alice.to_account_id(),
+		// 3) Endowed accounts (Alice, Bob, and their stashes)
+		vec![
+			Sr25519Keyring::Alice.to_account_id(),
+			Sr25519Keyring::Bob.to_account_id(),
+			Sr25519Keyring::AliceStash.to_account_id(),
+			Sr25519Keyring::BobStash.to_account_id(),
+		],
+	)
+}
+
 /// Provides the JSON representation of predefined genesis config for given `id`.
 pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 	let patch = match id.as_ref() {
 		sp_genesis_builder::DEV_RUNTIME_PRESET => development_config_genesis(),
 		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => local_config_genesis(),
+		STAGING_RUNTIME_PRESET => staging_config_genesis(),
 		_ => return None,
 	};
 	Some(
@@ -130,5 +160,6 @@ pub fn preset_names() -> Vec<PresetId> {
 	vec![
 		PresetId::from(sp_genesis_builder::DEV_RUNTIME_PRESET),
 		PresetId::from(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET),
+		PresetId::from(STAGING_RUNTIME_PRESET),
 	]
 }
