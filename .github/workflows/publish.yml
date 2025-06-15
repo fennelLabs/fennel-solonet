@@ -81,18 +81,30 @@ jobs:
       # ------------------------------------------------------------
       # Generate chain specifications using chain-spec-builder
       # ------------------------------------------------------------
-      - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          target: wasm32-unknown-unknown
-          profile: minimal
-          override: true
+      - name: Install jq for JSON processing
+        run: |
+          sudo apt-get update && sudo apt-get install -y jq
+          echo "✅ Installed jq"
 
       - name: Install chain-spec-builder
         run: |
-          cargo install staging-chain-spec-builder --locked
+          # Create directory for chain-spec-builder
+          mkdir -p "${HOME}/.cargo/bin"
+          
+          # Use Parity's prebuilt container that has Rust, protoc, and all dependencies
+          docker run --rm \
+            -v "${PWD}":/build \
+            -v "${HOME}/.cargo/bin":/cargo-bin \
+            --workdir /build \
+            paritytech/ci-unified:latest \
+            bash -c "
+              cargo install staging-chain-spec-builder --locked --root /tmp/cargo-install && \
+              cp /tmp/cargo-install/bin/chain-spec-builder /cargo-bin/
+            "
           echo "✅ Installed chain-spec-builder"
+          
+          # Add cargo bin to PATH for subsequent steps
+          echo "${HOME}/.cargo/bin" >> $GITHUB_PATH
 
       - name: Create development chain spec
         run: |
