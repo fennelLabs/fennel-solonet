@@ -121,7 +121,7 @@ jobs:
           chain-spec-builder create \
             --runtime runtime/fennel/target/srtool/release/wbuild/fennel-node-runtime/fennel_node_runtime.compact.wasm \
             named-preset development \
-            --output chainspecs/development.json
+            > chainspecs/development.json
 
           # Convert to raw format
           echo "Converting to raw format..."
@@ -145,7 +145,7 @@ jobs:
           chain-spec-builder create \
             --runtime runtime/fennel/target/srtool/release/wbuild/fennel-node-runtime/fennel_node_runtime.compact.wasm \
             named-preset staging \
-            --output Staging/staging-chainspec.json
+            > Staging/staging-chainspec.json
           
           # Add bootnodes to the staging chain spec
           echo "Adding bootnodes to staging chain spec..."
