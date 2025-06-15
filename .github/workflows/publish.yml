@@ -118,7 +118,7 @@ jobs:
             > chainspecs/default-genesis.json
 
           # Create development patch file that matches genesis_config_presets.rs
-          cat > chainspecs/development-patch.json << 'EOF'
+          cat > chainspecs/development-patch.json << EOF
           {
             "name": "Fennel Development",
             "id": "fennel-dev",
@@ -131,7 +131,7 @@ jobs:
             "genesis": {
               "runtime": {
                 "system": {
-                  "code": "${{ env.WASM_HASH }}"
+                  "code": "${WASM_HASH}"
                 },
                 "balances": {
                   "balances": [
