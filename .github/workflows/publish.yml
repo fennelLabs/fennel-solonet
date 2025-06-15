@@ -111,73 +111,16 @@ jobs:
           # Create chainspecs directory if it doesn't exist
           mkdir -p chainspecs
           
-          # First, get the default genesis config from the runtime
-          chain-spec-builder create \
-            -r runtime/fennel/target/srtool/release/wbuild/fennel-node-runtime/fennel_node_runtime.compact.wasm \
-            default \
-            > chainspecs/default-genesis.json
-
-          # Create development patch file that matches genesis_config_presets.rs
-          cat > chainspecs/development-patch.json << EOF
-          {
-            "name": "Fennel Development",
-            "id": "fennel-dev",
-            "chainType": "Development",
-            "properties": {
-              "ss58Format": 42,
-              "tokenDecimals": 12,
-              "tokenSymbol": "FENNEL"
-            },
-            "genesis": {
-              "runtime": {
-                "system": {
-                  "code": "${WASM_HASH}"
-                },
-                "balances": {
-                  "balances": [
-                    ["5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY", 1152921504606846976],
-                    ["5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty", 1152921504606846976],
-                    ["5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y", 1152921504606846976],
-                    ["5DAAnrj7VHTznn2AWBemMuyBwZWs6FNFjdyVXUeYum3PTXFy", 1152921504606846976]
-                  ]
-                },
-                "sudo": {
-                  "key": "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"
-                },
-                "validatorManager": {
-                  "initialValidators": [
-                    "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
-                    "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty"
-                  ]
-                },
-                "session": {
-                  "keys": [
-                    [
-                      "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
-                      "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
-                      {
-                        "aura": "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
-                        "grandpa": "5FA9nQDVg267DEd8m1ZypXLBnvN7SFxYwV7ndqSYGiN9TTpu"
-                      }
-                    ],
-                    [
-                      "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty",
-                      "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty",
-                      {
-                        "aura": "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty",
-                        "grandpa": "5GoNkf6WdbxCFnPdAnYYQyCjAKPJgLNxXwPjwTh6DGg6gN3E"
-                      }
-                    ]
-                  ]
-                }
-              }
-            }
-          }
-          EOF
-
-          # Merge default genesis with our patch
-          echo "Merging default genesis with development patch..."
-          jq -s '.[0] * .[1]' chainspecs/default-genesis.json chainspecs/development-patch.json > chainspecs/development.json
+          # Check if the runtime has a development preset
+          echo "Checking available presets..."
+          chain-spec-builder list-presets \
+            --runtime runtime/fennel/target/srtool/release/wbuild/fennel-node-runtime/fennel_node_runtime.compact.wasm || true
+          
+          # Use the dev preset from the runtime
+          echo "Creating development chain spec using 'dev' preset..."
+          chain-spec-builder create named-preset dev \
+            --runtime runtime/fennel/target/srtool/release/wbuild/fennel-node-runtime/fennel_node_runtime.compact.wasm \
+            --output chainspecs/development.json
 
           # Convert to raw format
           echo "Converting to raw format..."
@@ -189,7 +132,7 @@ jobs:
           
           # Output the final chain spec structure
           echo "Final chain spec structure:"
-          jq -r '.genesis.runtime | keys[]' chainspecs/development.json
+          jq -r '.genesis.runtime | keys[]' chainspecs/development.json || true
 
       - name: Create staging chain specs with bootnodes
         run: |
