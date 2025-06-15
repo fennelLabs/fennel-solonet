@@ -81,16 +81,17 @@ jobs:
       # ------------------------------------------------------------
       # Generate chain specifications using chain-spec-builder
       # ------------------------------------------------------------
-      - name: Install Rust nightly
-        run: |
-          rustup toolchain install nightly
-          rustup default nightly
-          rustup target add wasm32-unknown-unknown --toolchain nightly
-          echo "✅ Installed Rust nightly"
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: wasm32-unknown-unknown
+          profile: minimal
+          override: true
 
       - name: Install chain-spec-builder
         run: |
-          cargo +nightly install --git https://github.com/paritytech/polkadot-sdk --force staging-chain-spec-builder
+          cargo install staging-chain-spec-builder --locked
           echo "✅ Installed chain-spec-builder"
 
       - name: Create development chain spec
