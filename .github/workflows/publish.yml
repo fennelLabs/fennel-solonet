@@ -116,10 +116,11 @@ jobs:
           chain-spec-builder list-presets \
             --runtime runtime/fennel/target/srtool/release/wbuild/fennel-node-runtime/fennel_node_runtime.compact.wasm || true
           
-          # Use the dev preset from the runtime
-          echo "Creating development chain spec using 'dev' preset..."
-          chain-spec-builder create named-preset dev \
+          # Use the development preset from the runtime
+          echo "Creating development chain spec using 'development' preset..."
+          chain-spec-builder create \
             --runtime runtime/fennel/target/srtool/release/wbuild/fennel-node-runtime/fennel_node_runtime.compact.wasm \
+            named-preset development \
             --output chainspecs/development.json
 
           # Convert to raw format
@@ -141,19 +142,21 @@ jobs:
           
           # Generate staging chain spec (plain) with bootnodes
           echo "Generating staging chain spec with bootnodes..."
-          chain-spec-builder create named-preset staging \
+          chain-spec-builder create \
             --runtime runtime/fennel/target/srtool/release/wbuild/fennel-node-runtime/fennel_node_runtime.compact.wasm \
-            --bootnodes /dns/fennel-bootnode-1.fennel-staging.svc.cluster.local/tcp/30333/p2p/12D3KooWDCZGrnJhsgWJtDcs6eZc1hUBrVj5QqkEWggAkNVowRAi \
-            --bootnodes /dns/fennel-bootnode-2.fennel-staging.svc.cluster.local/tcp/30333/p2p/12D3KooWDbfFv6oepAXmQaiwFaVjD9g7AxowQ8LQdWTcVYpKhnAx \
+            named-preset staging \
             --output Staging/staging-chainspec.json
           
+          # Add bootnodes to the staging chain spec
+          echo "Adding bootnodes to staging chain spec..."
+          jq '.bootNodes = [
+            "/dns/fennel-bootnode-1.fennel-staging.svc.cluster.local/tcp/30333/p2p/12D3KooWDCZGrnJhsgWJtDcs6eZc1hUBrVj5QqkEWggAkNVowRAi",
+            "/dns/fennel-bootnode-2.fennel-staging.svc.cluster.local/tcp/30333/p2p/12D3KooWDbfFv6oepAXmQaiwFaVjD9g7AxowQ8LQdWTcVYpKhnAx"
+          ]' Staging/staging-chainspec.json > Staging/staging-chainspec-temp.json && mv Staging/staging-chainspec-temp.json Staging/staging-chainspec.json
+          
           # Generate staging chain spec (raw) with bootnodes
-          echo "Generating raw staging chain spec with bootnodes..."
-          chain-spec-builder create named-preset staging \
-            --runtime runtime/fennel/target/srtool/release/wbuild/fennel-node-runtime/fennel_node_runtime.compact.wasm \
-            --bootnodes /dns/fennel-bootnode-1.fennel-staging.svc.cluster.local/tcp/30333/p2p/12D3KooWDCZGrnJhsgWJtDcs6eZc1hUBrVj5QqkEWggAkNVowRAi \
-            --bootnodes /dns/fennel-bootnode-2.fennel-staging.svc.cluster.local/tcp/30333/p2p/12D3KooWDbfFv6oepAXmQaiwFaVjD9g7AxowQ8LQdWTcVYpKhnAx \
-            --raw --output Staging/staging-raw.json
+          echo "Generating raw staging chain spec..."
+          chain-spec-builder convert-to-raw Staging/staging-chainspec.json > Staging/staging-raw.json
           
           # Verify the staging specs were created
           echo "✅ Generated staging chain specifications:"
