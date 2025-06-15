@@ -77,6 +77,162 @@ jobs:
           echo "WASM_HASH=$HASH" >> $GITHUB_ENV
           echo "hash=$HASH" >> $GITHUB_OUTPUT
           echo "✅ Deterministic Wasm hash: $HASH"
+
+      # ------------------------------------------------------------
+      # Generate chain specifications using chain-spec-builder
+      # ------------------------------------------------------------
+      - name: Install chain-spec-builder
+        run: |
+          cargo install --git https://github.com/paritytech/polkadot-sdk --force staging-chain-spec-builder
+          echo "✅ Installed chain-spec-builder"
+
+      - name: Create development chain spec
+        run: |
+          # Create chainspecs directory if it doesn't exist
+          mkdir -p chainspecs
+          
+          # First, get the default genesis config from the runtime
+          chain-spec-builder create \
+            -r runtime/fennel/target/srtool/release/wbuild/fennel-node-runtime/fennel_node_runtime.compact.wasm \
+            default \
+            > chainspecs/default-genesis.json
+
+          # Create development patch file that matches genesis_config_presets.rs
+          cat > chainspecs/development-patch.json << 'EOF'
+          {
+            "name": "Fennel Development",
+            "id": "fennel-dev",
+            "chainType": "Development",
+            "properties": {
+              "ss58Format": 42,
+              "tokenDecimals": 12,
+              "tokenSymbol": "FENNEL"
+            },
+            "genesis": {
+              "runtime": {
+                "system": {
+                  "code": "${{ env.WASM_HASH }}"
+                },
+                "balances": {
+                  "balances": [
+                    ["5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY", 1152921504606846976],
+                    ["5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty", 1152921504606846976],
+                    ["5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y", 1152921504606846976],
+                    ["5DAAnrj7VHTznn2AWBemMuyBwZWs6FNFjdyVXUeYum3PTXFy", 1152921504606846976]
+                  ]
+                },
+                "sudo": {
+                  "key": "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"
+                },
+                "validatorManager": {
+                  "initialValidators": [
+                    "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
+                    "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty"
+                  ]
+                },
+                "session": {
+                  "keys": [
+                    [
+                      "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
+                      "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
+                      {
+                        "aura": "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
+                        "grandpa": "5FA9nQDVg267DEd8m1ZypXLBnvN7SFxYwV7ndqSYGiN9TTpu"
+                      }
+                    ],
+                    [
+                      "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty",
+                      "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty",
+                      {
+                        "aura": "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty",
+                        "grandpa": "5GoNkf6WdbxCFnPdAnYYQyCjAKPJgLNxXwPjwTh6DGg6gN3E"
+                      }
+                    ]
+                  ]
+                }
+              }
+            }
+          }
+          EOF
+
+          # Merge default genesis with our patch
+          echo "Merging default genesis with development patch..."
+          jq -s '.[0] * .[1]' chainspecs/default-genesis.json chainspecs/development-patch.json > chainspecs/development.json
+
+          # Convert to raw format
+          echo "Converting to raw format..."
+          chain-spec-builder convert-to-raw chainspecs/development.json > chainspecs/development-raw.json
+          
+          # Verify the specs were created
+          echo "✅ Generated chain specifications:"
+          ls -l chainspecs/
+          
+          # Output the final chain spec structure
+          echo "Final chain spec structure:"
+          jq -r '.genesis.runtime | keys[]' chainspecs/development.json
+
+      - name: Create staging chain specs with bootnodes
+        run: |
+          # Create Staging directory for staging chainspecs
+          mkdir -p Staging
+          
+          # Generate staging chain spec (plain) with bootnodes
+          echo "Generating staging chain spec with bootnodes..."
+          chain-spec-builder create named-preset staging \
+            --runtime runtime/fennel/target/srtool/release/wbuild/fennel-node-runtime/fennel_node_runtime.compact.wasm \
+            --bootnodes /dns/fennel-bootnode-1.fennel-staging.svc.cluster.local/tcp/30333/p2p/12D3KooWDCZGrnJhsgWJtDcs6eZc1hUBrVj5QqkEWggAkNVowRAi \
+            --bootnodes /dns/fennel-bootnode-2.fennel-staging.svc.cluster.local/tcp/30333/p2p/12D3KooWDbfFv6oepAXmQaiwFaVjD9g7AxowQ8LQdWTcVYpKhnAx \
+            --output Staging/staging-chainspec.json
+          
+          # Generate staging chain spec (raw) with bootnodes
+          echo "Generating raw staging chain spec with bootnodes..."
+          chain-spec-builder create named-preset staging \
+            --runtime runtime/fennel/target/srtool/release/wbuild/fennel-node-runtime/fennel_node_runtime.compact.wasm \
+            --bootnodes /dns/fennel-bootnode-1.fennel-staging.svc.cluster.local/tcp/30333/p2p/12D3KooWDCZGrnJhsgWJtDcs6eZc1hUBrVj5QqkEWggAkNVowRAi \
+            --bootnodes /dns/fennel-bootnode-2.fennel-staging.svc.cluster.local/tcp/30333/p2p/12D3KooWDbfFv6oepAXmQaiwFaVjD9g7AxowQ8LQdWTcVYpKhnAx \
+            --raw --output Staging/staging-raw.json
+          
+          # Verify the staging specs were created
+          echo "✅ Generated staging chain specifications:"
+          ls -la Staging/
+          
+          # Show bootnode configuration in the generated specs
+          echo "Bootnode configuration in staging spec:"
+          jq -r '.bootNodes[]' Staging/staging-chainspec.json
+
+      - name: Commit staging chainspecs to repository
+        run: |
+          # Configure git
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          # Add the staging chainspecs
+          git add Staging/staging-chainspec.json Staging/staging-raw.json
+          
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to staging chainspecs"
+          else
+            # Commit the changes
+            git commit -m "Update staging chainspecs with bootnodes [skip ci]"
+            
+            # Push the changes back to the repository
+            git push origin main
+            
+            echo "✅ Staging chainspecs committed and pushed to repository"
+          fi
+
+      - name: Upload chain specs as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: fennel-chainspecs
+          path: |
+            chainspecs/default-genesis.json
+            chainspecs/development-patch.json
+            chainspecs/development.json
+            chainspecs/development-raw.json
+            Staging/staging-chainspec.json
+            Staging/staging-raw.json
       
       # This step uses the `docker/build-push-action` action to build the image, based on your repository's `Dockerfile`. If the build succeeds, it pushes the image to GitHub Packages.
       # It uses the `context` parameter to define the build's context as the set of files located in the specified path. For more information, see "[Usage](https://github.com/docker/build-push-action#usage)" in the README of the `docker/build-push-action` repository.
