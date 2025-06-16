@@ -254,9 +254,9 @@ jobs:
             git commit -m "Update staging chainspecs with bootnodes [skip ci]"
             
             # Push the changes back to the repository
-            git push origin main
+            git push origin ${GITHUB_REF#refs/heads/}
             
-            echo "✅ Staging chainspecs committed and pushed to repository"
+            echo "✅ Staging chainspecs committed and pushed to repository on branch ${GITHUB_REF#refs/heads/}"
           fi
 
       - name: Upload chain specs as artifacts
