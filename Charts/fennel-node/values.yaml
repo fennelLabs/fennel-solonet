@@ -1,0 +1,22 @@
+# Docker image for the fennel-solonet node
+image:
+  repository: "PLACEHOLDER_REGISTRY/fennel-solonet-node"  # CI will inject actual registry/repo
+  tag:        "dev-placeholder"                           # CI will inject actual tag or digest
+
+# Chainspec file reference (ConfigMap key)
+chainspec:
+  file: "PLACEHOLDER_CHAINSPEC.json"                      # CI will inject actual chainspec file name
+
+# Parity 'node' subchart overrides
+node:
+  chainSpecConfigMap: "PLACEHOLDER_CHAINSPEC_CONFIGMAP"   # CI will inject actual ConfigMap name
+  resources:
+    requests:
+      cpu:    200m
+      memory: 256Mi
+    limits:
+      cpu:    500m
+      memory: 512Mi
+
+# Additional Pod-level resource defaults (if needed)
+resources: {}
