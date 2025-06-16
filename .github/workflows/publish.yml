@@ -160,7 +160,7 @@ jobs:
           ls -l chainspecs/development/development.json chainspecs/development/development-raw.json
           
           echo -e "\n📄 Chain spec structure (first 5 lines):"
-          jq . chainspecs/development/development.json | head -n 5
+          jq . chainspecs/development/development.json 2>/dev/null | head -n 5 || true
           
           echo -e "\n🔍 Checking file sizes:"
           stat -c "development.json: %s bytes" chainspecs/development/development.json
@@ -216,7 +216,7 @@ jobs:
           ls -l chainspecs/staging/staging-chainspec.json chainspecs/staging/staging-raw.json
           
           echo -e "\n📄 Chain spec structure (first 5 lines):"
-          jq . chainspecs/staging/staging-chainspec.json | head -n 5
+          jq . chainspecs/staging/staging-chainspec.json 2>/dev/null | head -n 5 || true
           
           echo -e "\n🔍 Checking file sizes:"
           stat -c "staging-chainspec.json: %s bytes" chainspecs/staging/staging-chainspec.json
