@@ -108,8 +108,20 @@ jobs:
 
       - name: Create development chain spec
         run: |
-          # Create Development directory in Chainspecs if it doesn't exist
-          mkdir -p Chainspecs/Development
+          set -euo pipefail
+          
+          # Create development directory in chainspecs if it doesn't exist
+          mkdir -p chainspecs/development
+          
+          # Debug: Check chain-spec-builder version and help
+          echo "Chain-spec-builder version:"
+          chain-spec-builder --version || echo "No version flag available"
+          
+          echo -e "\nChain-spec-builder help:"
+          chain-spec-builder --help || echo "No help available"
+          
+          echo -e "\nChain-spec-builder create help:"
+          chain-spec-builder create --help || echo "No create help available"
           
           # Check if the runtime has a development preset
           echo "Checking available presets..."
@@ -120,75 +132,110 @@ jobs:
           echo "Checking if runtime WASM exists..."
           ls -la runtime/fennel/target/srtool/release/wbuild/fennel-node-runtime/fennel_node_runtime.compact.wasm || echo "Runtime WASM not found!"
           
-          # Use the development preset from the runtime
-          echo "Creating development chain spec using 'development' preset..."
-          if ! chain-spec-builder create \
-            --runtime runtime/fennel/target/srtool/release/wbuild/fennel-node-runtime/fennel_node_runtime.compact.wasm \
-            named-preset development \
-            > Chainspecs/Development/development.json 2>&1; then
-            echo "Error creating development chain spec. Output:"
-            cat Chainspecs/Development/development.json
-            exit 1
-          fi
-
-          # Check if file has content
-          if [ ! -s Chainspecs/Development/development.json ]; then
-            echo "Error: development.json is empty!"
-            exit 1
-          fi
-
+          # Generate development chain spec
+          echo "Creating development chain spec..."
+          chain-spec-builder \
+            -c chainspecs/development/development.json \
+            create \
+            -r runtime/fennel/target/srtool/release/wbuild/fennel-node-runtime/fennel_node_runtime.compact.wasm \
+            named-preset development
+          
           # Convert to raw format
           echo "Converting to raw format..."
-          chain-spec-builder convert-to-raw Chainspecs/Development/development.json > Chainspecs/Development/development-raw.json
+          chain-spec-builder \
+            -c chainspecs/development/development-raw.json \
+            convert-to-raw \
+            chainspecs/development/development.json
           
           # Verify the specs were created
           echo "✅ Generated chain specifications:"
-          ls -l Chainspecs/Development/
+          ls -l chainspecs/development/
           
-          # Output the final chain spec structure
-          echo "Final chain spec structure:"
-          jq -r '.genesis.runtime | keys[]' Chainspecs/Development/development.json || true
+          # Quick verification of content
+          echo "Verifying development.json content:"
+          jq '.name' chainspecs/development/development.json || echo "Failed to parse JSON"
+          
+          # Comprehensive verification
+          echo -e "\n📋 Verification of generated files:"
+          ls -l chainspecs/development/development.json chainspecs/development/development-raw.json
+          
+          echo -e "\n📄 Chain spec structure (first 5 lines):"
+          jq . chainspecs/development/development.json | head -n 5
+          
+          echo -e "\n🔍 Checking file sizes:"
+          stat -c "development.json: %s bytes" chainspecs/development/development.json
+          stat -c "development-raw.json: %s bytes" chainspecs/development/development-raw.json
+          
+          # Verify raw spec is SCALE-encoded (not JSON)
+          echo -e "\n🔬 Verifying raw spec format (first 200 bytes):"
+          head -c 200 chainspecs/development/development-raw.json | xxd | head -n 5 || echo "Could not read raw spec"
+          
+          # Ensure files are not empty
+          if [ ! -s chainspecs/development/development.json ]; then
+            echo "❌ Error: development.json is empty!"
+            exit 1
+          fi
+          if [ ! -s chainspecs/development/development-raw.json ]; then
+            echo "❌ Error: development-raw.json is empty!"
+            exit 1
+          fi
+          echo "✅ All development chain spec files are populated"
 
-      - name: Create staging chain specs with bootnodes
+      - name: Create staging chain specs
         run: |
-          # Create Staging directory in Chainspecs if it doesn't exist
-          mkdir -p Chainspecs/Staging
+          set -euo pipefail
           
-          # Generate staging chain spec (plain) with bootnodes
-          echo "Generating staging chain spec with bootnodes..."
-          if ! chain-spec-builder create \
-            --runtime runtime/fennel/target/srtool/release/wbuild/fennel-node-runtime/fennel_node_runtime.compact.wasm \
-            named-preset staging \
-            > Chainspecs/Staging/staging-chainspec.json 2>&1; then
-            echo "Error creating staging chain spec. Output:"
-            cat Chainspecs/Staging/staging-chainspec.json
-            exit 1
-          fi
+          # Create staging directory in chainspecs if it doesn't exist
+          mkdir -p chainspecs/staging
           
-          # Check if file has content
-          if [ ! -s Chainspecs/Staging/staging-chainspec.json ]; then
-            echo "Error: staging-chainspec.json is empty!"
-            exit 1
-          fi
+          # Generate staging chain spec
+          echo "Generating staging chain spec..."
+          chain-spec-builder \
+            -c chainspecs/staging/staging-chainspec.json \
+            create \
+            -r runtime/fennel/target/srtool/release/wbuild/fennel-node-runtime/fennel_node_runtime.compact.wasm \
+            named-preset staging
           
-          # Add bootnodes to the staging chain spec
-          echo "Adding bootnodes to staging chain spec..."
-          jq '.bootNodes = [
-            "/dns/fennel-bootnode-1.fennel-staging.svc.cluster.local/tcp/30333/p2p/12D3KooWDCZGrnJhsgWJtDcs6eZc1hUBrVj5QqkEWggAkNVowRAi",
-            "/dns/fennel-bootnode-2.fennel-staging.svc.cluster.local/tcp/30333/p2p/12D3KooWDbfFv6oepAXmQaiwFaVjD9g7AxowQ8LQdWTcVYpKhnAx"
-          ]' Chainspecs/Staging/staging-chainspec.json > Chainspecs/Staging/staging-chainspec-temp.json && mv Chainspecs/Staging/staging-chainspec-temp.json Chainspecs/Staging/staging-chainspec.json
-          
-          # Generate staging chain spec (raw) with bootnodes
+          # Generate raw staging chain spec
           echo "Generating raw staging chain spec..."
-          chain-spec-builder convert-to-raw Chainspecs/Staging/staging-chainspec.json > Chainspecs/Staging/staging-raw.json
+          chain-spec-builder \
+            -c chainspecs/staging/staging-raw.json \
+            convert-to-raw \
+            chainspecs/staging/staging-chainspec.json
           
           # Verify the staging specs were created
           echo "✅ Generated staging chain specifications:"
-          ls -la Chainspecs/Staging/
+          ls -la chainspecs/staging/
           
-          # Show bootnode configuration in the generated specs
-          echo "Bootnode configuration in staging spec:"
-          jq -r '.bootNodes[]' Chainspecs/Staging/staging-chainspec.json
+          # Quick verification of content
+          echo "Verifying staging-chainspec.json content:"
+          jq '.name' chainspecs/staging/staging-chainspec.json || echo "Failed to parse JSON"
+          
+          # Comprehensive verification
+          echo -e "\n📋 Verification of generated files:"
+          ls -l chainspecs/staging/staging-chainspec.json chainspecs/staging/staging-raw.json
+          
+          echo -e "\n📄 Chain spec structure (first 5 lines):"
+          jq . chainspecs/staging/staging-chainspec.json | head -n 5
+          
+          echo -e "\n🔍 Checking file sizes:"
+          stat -c "staging-chainspec.json: %s bytes" chainspecs/staging/staging-chainspec.json
+          stat -c "staging-raw.json: %s bytes" chainspecs/staging/staging-raw.json
+          
+          # Verify raw spec is SCALE-encoded (not JSON)
+          echo -e "\n🔬 Verifying raw spec format (first 200 bytes):"
+          head -c 200 chainspecs/staging/staging-raw.json | xxd | head -n 5 || echo "Could not read raw spec"
+          
+          # Ensure files are not empty
+          if [ ! -s chainspecs/staging/staging-chainspec.json ]; then
+            echo "❌ Error: staging-chainspec.json is empty!"
+            exit 1
+          fi
+          if [ ! -s chainspecs/staging/staging-raw.json ]; then
+            echo "❌ Error: staging-raw.json is empty!"
+            exit 1
+          fi
+          echo "✅ All staging chain spec files are populated"
 
       - name: Commit staging chainspecs to repository
         run: |
@@ -197,13 +244,13 @@ jobs:
           git config --local user.name "GitHub Action"
           
           # Add the staging chainspecs
-          git add Chainspecs/Staging/staging-chainspec.json Chainspecs/Staging/staging-raw.json
+          git add chainspecs/staging/staging-chainspec.json chainspecs/staging/staging-raw.json
           
           # Check if there are changes to commit
           if git diff --staged --quiet; then
             echo "No changes to staging chainspecs"
           else
-            # Commit the changes
+            # Commit the changes with [skip ci] to prevent retriggering
             git commit -m "Update staging chainspecs with bootnodes [skip ci]"
             
             # Push the changes back to the repository
@@ -217,10 +264,10 @@ jobs:
         with:
           name: fennel-chainspecs
           path: |
-            Chainspecs/Development/development.json
-            Chainspecs/Development/development-raw.json
-            Chainspecs/Staging/staging-chainspec.json
-            Chainspecs/Staging/staging-raw.json
+            chainspecs/development/development.json
+            chainspecs/development/development-raw.json
+            chainspecs/staging/staging-chainspec.json
+            chainspecs/staging/staging-raw.json
       
       # This step uses the `docker/build-push-action` action to build the image, based on your repository's `Dockerfile`. If the build succeeds, it pushes the image to GitHub Packages.
       # It uses the `context` parameter to define the build's context as the set of files located in the specified path. For more information, see "[Usage](https://github.com/docker/build-push-action#usage)" in the README of the `docker/build-push-action` repository.
@@ -236,6 +283,7 @@ jobs:
           build-args: |
             WASM_HASH=${{ env.WASM_HASH }}
           cache-from: type=gha
+          cache-to: type=gha,mode=max
           provenance: false
           
       # Create and upload artifact containing image info
@@ -253,4 +301,3 @@ jobs:
         with:
           name: fennel-node-image-info
           path: ./artifacts/image-info.txt
-
