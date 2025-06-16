@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     # Sets the permissions granted to the `GITHUB_TOKEN` for the actions in this job.
     permissions:
-      contents: read
+      contents: write  # Changed from read to write to allow pushing commits
       packages: write
       #
     steps:
