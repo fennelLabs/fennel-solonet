@@ -26,8 +26,33 @@ jobs:
       # Free up additional disk space on GitHub runner (~10-15 GB)
       - name: Free runner disk space
         run: |
-          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost /usr/share/swift /usr/local/lib/android /opt/hostedtoolcache || true
+          echo "=== Initial disk usage ==="
+          df -h
+          
+          echo "=== Removing unnecessary packages ==="
+          sudo apt-get remove -y '^dotnet-.*' '^llvm-.*' 'php.*' '^mongodb-.*' '^mysql-.*' azure-cli google-cloud-cli google-chrome-stable firefox powershell mono-devel libgl1-mesa-dri --auto-remove
+          sudo apt-get autoremove -y
           sudo apt-get clean
+          
+          echo "=== Removing large directories ==="
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/local/share/boost
+          sudo rm -rf /usr/share/swift
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/hostedtoolcache
+          sudo rm -rf /usr/local/.ghcup
+          sudo rm -rf /usr/local/share/powershell
+          sudo rm -rf /usr/local/share/chromium
+          sudo rm -rf /usr/local/lib/node_modules
+          sudo rm -rf /opt/az
+          sudo rm -rf /usr/share/miniconda
+          sudo rm -rf /usr/lib/google-cloud-sdk
+          
+          echo "=== Removing Docker images ==="
+          docker image prune -a -f
+          
+          echo "=== Final disk usage ==="
           df -h
 
       # Set up Docker Buildx for efficient layer caching
@@ -77,6 +102,18 @@ jobs:
           echo "WASM_HASH=$HASH" >> $GITHUB_ENV
           echo "hash=$HASH" >> $GITHUB_OUTPUT
           echo "✅ Deterministic Wasm hash: $HASH"
+
+      # Clean up srtool build artifacts to free disk space
+      - name: Clean up srtool artifacts
+        run: |
+          echo "=== Cleaning up srtool build artifacts ==="
+          # Remove intermediate build files but keep the final WASM
+          find runtime/fennel/target/srtool -type f -name "*.rlib" -delete || true
+          find runtime/fennel/target/srtool -type f -name "*.rmeta" -delete || true
+          find runtime/fennel/target/srtool -type d -name "deps" -exec rm -rf {} + || true
+          find runtime/fennel/target/srtool -type d -name "build" -exec rm -rf {} + || true
+          echo "=== Disk usage after cleanup ==="
+          df -h
 
       # ------------------------------------------------------------
       # Generate chain specifications using chain-spec-builder
@@ -180,6 +217,28 @@ jobs:
             exit 1
           fi
           echo "✅ All development chain spec files are populated"
+
+      - name: Commit development chainspecs to repository
+        run: |
+          # Configure git
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          # Add the development chainspecs
+          git add chainspecs/development/development.json chainspecs/development/development-raw.json
+          
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to development chainspecs"
+          else
+            # Commit the changes with [skip ci] to prevent retriggering
+            git commit -m "Update development chainspecs [skip ci]"
+            
+            # Push the changes back to the repository
+            git push origin ${GITHUB_REF#refs/heads/}
+            
+            echo "✅ Development chainspecs committed and pushed to repository on branch ${GITHUB_REF#refs/heads/}"
+          fi
 
       - name: Create staging chain specs
         run: |

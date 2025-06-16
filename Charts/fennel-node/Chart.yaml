@@ -1,0 +1,38 @@
+apiVersion: v2
+name: fennel-node
+description: Fennel Solochain Validator Node - Staging Environment
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+
+# Keywords for discoverability
+keywords:
+  - blockchain
+  - substrate
+  - polkadot
+  - validator
+  - solochain
+  - fennel
+
+# Maintainer information
+maintainers:
+  - name: Fennel Team
+    email: team@fennel.network
+
+# Dependencies - using Parity's node chart
+dependencies:
+  - name: node                  # must match the 'name:' in Parity's Chart.yaml
+    version: "0.10.0"           # Parity chart version
+    repository: "https://paritytech.github.io/helm-charts"
+    condition: node.enabled
+
+# Annotations for metadata
+annotations:
+  # Placeholder for staging chainspec - will be populated by CI
+  fennel.network/chainspec-url: "PLACEHOLDER_STAGING_CHAINSPEC_URL"
+  # Placeholder for docker image - will be populated by CI
+  fennel.network/docker-image: "PLACEHOLDER_STAGING_DOCKER_IMAGE"
+  # CI integration metadata
+  fennel.network/ci-build-id: "PLACEHOLDER_CI_BUILD_ID"
+  fennel.network/git-commit: "PLACEHOLDER_GIT_COMMIT_SHA"
+  fennel.network/environment: "staging"
