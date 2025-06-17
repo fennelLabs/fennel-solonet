@@ -1,0 +1,200 @@
+name: Test Bootnode Injection
+
+# This workflow tests only the bootnode injection functionality
+# without building the full runtime, for faster testing
+on:
+  workflow_dispatch:  # Allow manual triggering
+  push:
+    branches: ['test-bootnodes']  # Trigger on test branch
+
+jobs:
+  test-bootnode-injection:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install jq for JSON processing
+        run: |
+          sudo apt-get update && sudo apt-get install -y jq
+          echo "✅ Installed jq"
+
+      - name: Create mock chain specs for testing
+        run: |
+          set -euo pipefail
+          
+          echo "🧪 Creating mock chain specifications for testing..."
+          
+          # Create directory structure
+          mkdir -p chainspecs/{development,staging}
+          
+          # Create mock development chain spec
+          cat > chainspecs/development/development.json << 'EOF'
+          {
+            "name": "Fennel Development",
+            "id": "fennel_dev",
+            "chainType": "Development",
+            "genesis": {
+              "raw": {
+                "top": {}
+              }
+            },
+            "properties": {
+              "tokenDecimals": 18,
+              "tokenSymbol": "FNL"
+            },
+            "consensusEngine": null,
+            "lightSyncState": null,
+            "codeSubstitutes": {},
+            "forkBlocks": null,
+            "badBlocks": null,
+            "telemetryEndpoints": null
+          }
+          EOF
+          
+          # Create mock staging chain spec
+          cat > chainspecs/staging/staging-chainspec.json << 'EOF'
+          {
+            "name": "Fennel Staging",
+            "id": "fennel_staging",
+            "chainType": "Live",
+            "genesis": {
+              "raw": {
+                "top": {}
+              }
+            },
+            "properties": {
+              "tokenDecimals": 18,
+              "tokenSymbol": "FNL"
+            },
+            "consensusEngine": null,
+            "lightSyncState": null,
+            "codeSubstitutes": {},
+            "forkBlocks": null,
+            "badBlocks": null,
+            "telemetry_endpoints": null
+          }
+          EOF
+          
+          echo "✅ Mock chain specs created"
+
+      - name: Test bootnode injection - Development
+        run: |
+          set -euo pipefail
+          
+          echo "🔗 Testing bootnode injection for development spec..."
+          
+          SPEC="chainspecs/development/development.json"
+          
+          # Define bootnode multiaddresses using the peer IDs
+          BOOTNODES=(
+            "/dns/bootnode1.fennel.network/tcp/30333/p2p/12D3KooWDCZGrnJhsgWJtDcs6eZc1hUBrVj5QqkEWggAkNVowRAi"
+            "/dns/bootnode2.fennel.network/tcp/30333/p2p/12D3KooWDbfFv6oepAXmQaiwFaVjD9g7AxowQ8LQdWTcVYpKhnAx"
+          )
+          
+          # Build a JSON array string
+          JQ_ARRAY=$(printf '%s\n' "${BOOTNODES[@]}" | jq -R . | jq -s .)
+          
+          # Inject the bootNodes field into the spec
+          jq --argjson arr "$JQ_ARRAY" '.bootNodes = $arr' "$SPEC" > tmp.json && mv tmp.json "$SPEC"
+          
+          # Verify bootnodes were added
+          echo "✅ Bootnodes injected. Verification:"
+          jq '.bootNodes' "$SPEC" || echo "No bootNodes found"
+          
+          # Verify count
+          BOOTNODE_COUNT=$(jq '.bootNodes | length' "$SPEC")
+          if [ "$BOOTNODE_COUNT" -eq 2 ]; then
+            echo "✅ Correct number of bootnodes: $BOOTNODE_COUNT"
+          else
+            echo "❌ Expected 2 bootnodes, found: $BOOTNODE_COUNT"
+            exit 1
+          fi
+          
+          echo "📊 Updated development chain spec structure:"
+          jq 'keys' "$SPEC"
+
+      - name: Test bootnode injection - Staging
+        run: |
+          set -euo pipefail
+          
+          echo "🔗 Testing bootnode injection for staging spec..."
+          
+          SPEC="chainspecs/staging/staging-chainspec.json"
+          
+          # Define bootnode multiaddresses using the peer IDs
+          BOOTNODES=(
+            "/dns/bootnode1.fennel.network/tcp/30333/p2p/12D3KooWDCZGrnJhsgWJtDcs6eZc1hUBrVj5QqkEWggAkNVowRAi"
+            "/dns/bootnode2.fennel.network/tcp/30333/p2p/12D3KooWDbfFv6oepAXmQaiwFaVjD9g7AxowQ8LQdWTcVYpKhnAx"
+          )
+          
+          # Build a JSON array string
+          JQ_ARRAY=$(printf '%s\n' "${BOOTNODES[@]}" | jq -R . | jq -s .)
+          
+          # Inject the bootNodes field into the spec
+          jq --argjson arr "$JQ_ARRAY" '.bootNodes = $arr' "$SPEC" > tmp.json && mv tmp.json "$SPEC"
+          
+          # Verify bootnodes were added
+          echo "✅ Bootnodes injected. Verification:"
+          jq '.bootNodes' "$SPEC" || echo "No bootNodes found"
+          
+          # Verify count
+          BOOTNODE_COUNT=$(jq '.bootNodes | length' "$SPEC")
+          if [ "$BOOTNODE_COUNT" -eq 2 ]; then
+            echo "✅ Correct number of bootnodes: $BOOTNODE_COUNT"
+          else
+            echo "❌ Expected 2 bootnodes, found: $BOOTNODE_COUNT"
+            exit 1
+          fi
+          
+          echo "📊 Updated staging chain spec structure:"
+          jq 'keys' "$SPEC"
+
+      - name: Validate bootnode format
+        run: |
+          set -euo pipefail
+          
+          echo "🔍 Validating bootnode multiaddress format..."
+          
+          # Check development spec
+          echo "Checking development bootnodes:"
+          jq -r '.bootNodes[]' chainspecs/development/development.json | while IFS= read -r bootnode; do
+            if [[ $bootnode =~ ^/dns/bootnode[12]\.fennel\.network/tcp/30333/p2p/12D3KooW[A-Za-z0-9]+$ ]]; then
+              echo "✅ Valid bootnode: $bootnode"
+            else
+              echo "❌ Invalid bootnode format: $bootnode"
+              exit 1
+            fi
+          done
+          
+          # Check staging spec
+          echo "Checking staging bootnodes:"
+          jq -r '.bootNodes[]' chainspecs/staging/staging-chainspec.json | while IFS= read -r bootnode; do
+            if [[ $bootnode =~ ^/dns/bootnode[12]\.fennel\.network/tcp/30333/p2p/12D3KooW[A-Za-z0-9]+$ ]]; then
+              echo "✅ Valid bootnode: $bootnode"
+            else
+              echo "❌ Invalid bootnode format: $bootnode"
+              exit 1
+            fi
+          done
+          
+          echo "🎉 All bootnode formats are valid!"
+
+      - name: Display final results
+        run: |
+          echo "📋 Final Chain Spec Results:"
+          echo "============================"
+          
+          echo -e "\n🔧 Development Chain Spec:"
+          jq '.' chainspecs/development/development.json
+          
+          echo -e "\n🏭 Staging Chain Spec:"
+          jq '.' chainspecs/staging/staging-chainspec.json
+
+      - name: Upload test results as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-chainspecs-with-bootnodes
+          path: |
+            chainspecs/development/development.json
+            chainspecs/staging/staging-chainspec.json 
