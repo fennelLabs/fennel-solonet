@@ -2,7 +2,10 @@
   "name": "Custom",
   "id": "custom",
   "chainType": "Live",
-  "bootNodes": [],
+  "bootNodes": [
+    "/dns/bootnode1.fennel.network/tcp/30333/p2p/12D3KooWDCZGrnJhsgWJtDcs6eZc1hUBrVj5QqkEWggAkNVowRAi",
+    "/dns/bootnode2.fennel.network/tcp/30333/p2p/12D3KooWDbfFv6oepAXmQaiwFaVjD9g7AxowQ8LQdWTcVYpKhnAx"
+  ],
   "telemetryEndpoints": null,
   "protocolId": null,
   "properties": {
