@@ -9,6 +9,17 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  # Centralized bootnode configuration
+  EXTERNAL_BOOTNODES: |
+    [
+      "/dns4/bootnode1.fennel.network/tcp/30333/p2p/12D3KooWDCZGrnJhsgWJtDcs6eZc1hUBrVj5QqkEWggAkNVowRAi",
+      "/dns4/bootnode2.fennel.network/tcp/30333/p2p/12D3KooWDbfFv6oepAXmQaiwFaVjD9g7AxowQ8LQdWTcVYpKhnAx"
+    ]
+  INTERNAL_BOOTNODES: |
+    [
+      "/dns4/fennel-bootnode-1.fennel-staging.svc.cluster.local/tcp/30333/p2p/12D3KooWDCZGrnJhsgWJtDcs6eZc1hUBrVj5QqkEWggAkNVowRAi",
+      "/dns4/fennel-bootnode-2.fennel-staging.svc.cluster.local/tcp/30333/p2p/12D3KooWDbfFv6oepAXmQaiwFaVjD9g7AxowQ8LQdWTcVYpKhnAx"
+    ]
 
 # There is a single job in this workflow. It's configured to run on the latest available version of Ubuntu.
 jobs:
@@ -224,33 +235,36 @@ jobs:
           
           echo "🔗 Injecting bootnodes into development chain spec..."
           
-          SPEC="chainspecs/development/development.json"
+          TARGET="development"
+          SPEC="chainspecs/${TARGET}/development.json"
           
-          # Define bootnode multiaddresses using the peer IDs
-          BOOTNODES=(
-            "/dns/bootnode1.fennel.network/tcp/30333/p2p/12D3KooWDCZGrnJhsgWJtDcs6eZc1hUBrVj5QqkEWggAkNVowRAi"
-            "/dns/bootnode2.fennel.network/tcp/30333/p2p/12D3KooWDbfFv6oepAXmQaiwFaVjD9g7AxowQ8LQdWTcVYpKhnAx"
-          )
+          # Merge external and internal bootnodes using jq
+          ALL_BOOTNODES=$(jq -c -n \
+            --argjson ext "$EXTERNAL_BOOTNODES" \
+            --argjson int "$INTERNAL_BOOTNODES" \
+            '$ext + $int')
           
-          # Build a JSON array string
-          JQ_ARRAY=$(printf '%s\n' "${BOOTNODES[@]}" | jq -R . | jq -s .)
+          # Only update if there are changes (idempotent)
+          CURRENT_BOOTNODES=$(jq -c '.bootNodes // []' "$SPEC")
+          if [ "$CURRENT_BOOTNODES" != "$ALL_BOOTNODES" ]; then
+            echo "📝 Updating bootNodes in ${TARGET} chain spec..."
+            jq --argjson arr "$ALL_BOOTNODES" '.bootNodes = $arr' "$SPEC" > tmp.json && mv tmp.json "$SPEC"
+            
+            # Regenerate raw spec with bootnodes included
+            echo "🔄 Regenerating raw ${TARGET} spec with bootnodes..."
+            chain-spec-builder \
+              -c "chainspecs/${TARGET}/development-raw.json" \
+              convert-to-raw \
+              "chainspecs/${TARGET}/development.json"
+            
+            echo "✅ Bootnodes updated successfully"
+          else
+            echo "✅ No changes needed - bootnodes already up to date"
+          fi
           
-          # Inject the bootNodes field into the spec
-          jq --argjson arr "$JQ_ARRAY" '.bootNodes = $arr' "$SPEC" > tmp.json && mv tmp.json "$SPEC"
-          
-          # Regenerate raw spec with bootnodes included
-          echo "🔄 Regenerating raw development spec with bootnodes..."
-          chain-spec-builder \
-            -c chainspecs/development/development-raw.json \
-            convert-to-raw \
-            chainspecs/development/development.json
-          
-          # Verify bootnodes were added
-          echo "✅ Bootnodes injected. Verification:"
+          # Verify bootnodes configuration
+          echo "📊 Current bootNodes configuration:"
           jq '.bootNodes' "$SPEC" || echo "No bootNodes found"
-          
-          echo "📊 Updated development chain spec structure:"
-          jq 'keys' "$SPEC" | grep -E "(bootNodes|name)" || true
 
       - name: Commit development chainspecs to repository
         run: |
@@ -265,8 +279,8 @@ jobs:
           if git diff --staged --quiet; then
             echo "No changes to development chainspecs"
           else
-            # Commit the changes with [skip ci] to prevent retriggering
-            git commit -m "Update development chainspecs [skip ci]"
+            # Commit the changes with [ci skip] to prevent retriggering
+            git commit -m "Update development chainspecs with bootnodes [ci skip]"
             
             # Push the changes back to the repository
             git push origin ${GITHUB_REF#refs/heads/}
@@ -336,33 +350,36 @@ jobs:
           
           echo "🔗 Injecting bootnodes into staging chain spec..."
           
-          SPEC="chainspecs/staging/staging-chainspec.json"
+          TARGET="staging"
+          SPEC="chainspecs/${TARGET}/staging-chainspec.json"
           
-          # Define bootnode multiaddresses using the peer IDs
-          BOOTNODES=(
-            "/dns/bootnode1.fennel.network/tcp/30333/p2p/12D3KooWDCZGrnJhsgWJtDcs6eZc1hUBrVj5QqkEWggAkNVowRAi"
-            "/dns/bootnode2.fennel.network/tcp/30333/p2p/12D3KooWDbfFv6oepAXmQaiwFaVjD9g7AxowQ8LQdWTcVYpKhnAx"
-          )
+          # Merge external and internal bootnodes using jq
+          ALL_BOOTNODES=$(jq -c -n \
+            --argjson ext "$EXTERNAL_BOOTNODES" \
+            --argjson int "$INTERNAL_BOOTNODES" \
+            '$ext + $int')
           
-          # Build a JSON array string
-          JQ_ARRAY=$(printf '%s\n' "${BOOTNODES[@]}" | jq -R . | jq -s .)
+          # Only update if there are changes (idempotent)
+          CURRENT_BOOTNODES=$(jq -c '.bootNodes // []' "$SPEC")
+          if [ "$CURRENT_BOOTNODES" != "$ALL_BOOTNODES" ]; then
+            echo "📝 Updating bootNodes in ${TARGET} chain spec..."
+            jq --argjson arr "$ALL_BOOTNODES" '.bootNodes = $arr' "$SPEC" > tmp.json && mv tmp.json "$SPEC"
+            
+            # Regenerate raw spec with bootnodes included
+            echo "🔄 Regenerating raw ${TARGET} spec with bootnodes..."
+            chain-spec-builder \
+              -c "chainspecs/${TARGET}/staging-raw.json" \
+              convert-to-raw \
+              "chainspecs/${TARGET}/staging-chainspec.json"
+            
+            echo "✅ Bootnodes updated successfully"
+          else
+            echo "✅ No changes needed - bootnodes already up to date"
+          fi
           
-          # Inject the bootNodes field into the spec
-          jq --argjson arr "$JQ_ARRAY" '.bootNodes = $arr' "$SPEC" > tmp.json && mv tmp.json "$SPEC"
-          
-          # Regenerate raw spec with bootnodes included
-          echo "🔄 Regenerating raw staging spec with bootnodes..."
-          chain-spec-builder \
-            -c chainspecs/staging/staging-raw.json \
-            convert-to-raw \
-            chainspecs/staging/staging-chainspec.json
-          
-          # Verify bootnodes were added
-          echo "✅ Bootnodes injected. Verification:"
+          # Verify bootnodes configuration
+          echo "📊 Current bootNodes configuration:"
           jq '.bootNodes' "$SPEC" || echo "No bootNodes found"
-          
-          echo "📊 Updated staging chain spec structure:"
-          jq 'keys' "$SPEC" | grep -E "(bootNodes|name)" || true
 
       - name: Commit staging chainspecs to repository
         run: |
@@ -377,8 +394,8 @@ jobs:
           if git diff --staged --quiet; then
             echo "No changes to staging chainspecs"
           else
-            # Commit the changes with [skip ci] to prevent retriggering
-            git commit -m "Update staging chainspecs with bootnodes [skip ci]"
+            # Commit the changes with [ci skip] to prevent retriggering
+            git commit -m "Update staging chainspecs with bootnodes [ci skip]"
             
             # Push the changes back to the repository
             git push origin ${GITHUB_REF#refs/heads/}
