@@ -218,6 +218,40 @@ jobs:
           fi
           echo "✅ All development chain spec files are populated"
 
+      - name: Inject bootnodes into development chain spec
+        run: |
+          set -euo pipefail
+          
+          echo "🔗 Injecting bootnodes into development chain spec..."
+          
+          SPEC="chainspecs/development/development.json"
+          
+          # Define bootnode multiaddresses using the peer IDs
+          BOOTNODES=(
+            "/dns/bootnode1.fennel.network/tcp/30333/p2p/12D3KooWDCZGrnJhsgWJtDcs6eZc1hUBrVj5QqkEWggAkNVowRAi"
+            "/dns/bootnode2.fennel.network/tcp/30333/p2p/12D3KooWDbfFv6oepAXmQaiwFaVjD9g7AxowQ8LQdWTcVYpKhnAx"
+          )
+          
+          # Build a JSON array string
+          JQ_ARRAY=$(printf '%s\n' "${BOOTNODES[@]}" | jq -R . | jq -s .)
+          
+          # Inject the bootNodes field into the spec
+          jq --argjson arr "$JQ_ARRAY" '.bootNodes = $arr' "$SPEC" > tmp.json && mv tmp.json "$SPEC"
+          
+          # Regenerate raw spec with bootnodes included
+          echo "🔄 Regenerating raw development spec with bootnodes..."
+          chain-spec-builder \
+            -c chainspecs/development/development-raw.json \
+            convert-to-raw \
+            chainspecs/development/development.json
+          
+          # Verify bootnodes were added
+          echo "✅ Bootnodes injected. Verification:"
+          jq '.bootNodes' "$SPEC" || echo "No bootNodes found"
+          
+          echo "📊 Updated development chain spec structure:"
+          jq 'keys' "$SPEC" | grep -E "(bootNodes|name)" || true
+
       - name: Commit development chainspecs to repository
         run: |
           # Configure git
@@ -295,6 +329,40 @@ jobs:
             exit 1
           fi
           echo "✅ All staging chain spec files are populated"
+
+      - name: Inject bootnodes into staging chain spec
+        run: |
+          set -euo pipefail
+          
+          echo "🔗 Injecting bootnodes into staging chain spec..."
+          
+          SPEC="chainspecs/staging/staging-chainspec.json"
+          
+          # Define bootnode multiaddresses using the peer IDs
+          BOOTNODES=(
+            "/dns/bootnode1.fennel.network/tcp/30333/p2p/12D3KooWDCZGrnJhsgWJtDcs6eZc1hUBrVj5QqkEWggAkNVowRAi"
+            "/dns/bootnode2.fennel.network/tcp/30333/p2p/12D3KooWDbfFv6oepAXmQaiwFaVjD9g7AxowQ8LQdWTcVYpKhnAx"
+          )
+          
+          # Build a JSON array string
+          JQ_ARRAY=$(printf '%s\n' "${BOOTNODES[@]}" | jq -R . | jq -s .)
+          
+          # Inject the bootNodes field into the spec
+          jq --argjson arr "$JQ_ARRAY" '.bootNodes = $arr' "$SPEC" > tmp.json && mv tmp.json "$SPEC"
+          
+          # Regenerate raw spec with bootnodes included
+          echo "🔄 Regenerating raw staging spec with bootnodes..."
+          chain-spec-builder \
+            -c chainspecs/staging/staging-raw.json \
+            convert-to-raw \
+            chainspecs/staging/staging-chainspec.json
+          
+          # Verify bootnodes were added
+          echo "✅ Bootnodes injected. Verification:"
+          jq '.bootNodes' "$SPEC" || echo "No bootNodes found"
+          
+          echo "📊 Updated staging chain spec structure:"
+          jq 'keys' "$SPEC" | grep -E "(bootNodes|name)" || true
 
       - name: Commit staging chainspecs to repository
         run: |
