@@ -8,8 +8,11 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
     cargo install cargo-chef \
     && rustup target add wasm32-unknown-unknown --toolchain 1.84.1-x86_64-unknown-linux-gnu
 
-# Avoid extra git clone storage in cargo registry (optional but helps disk)
+# Optimize cargo for space and reduce compilation units
 ENV CARGO_NET_GIT_FETCH_WITH_CLI=true
+ENV CARGO_INCREMENTAL=0
+ENV CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1
+ENV CARGO_PROFILE_RELEASE_LTO=true
 
 # Planner stage - analyze dependencies
 FROM base AS planner
@@ -59,13 +62,19 @@ COPY . .
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/usr/local/cargo/git \
     --mount=type=cache,target=/fennel/target \
-    cargo build --locked --release
+    --mount=type=tmpfs,target=/tmp/build \
+    cargo build --locked --release && \
+    # Copy binary to a known location to avoid cache mount issues
+    cp /fennel/target/release/fennel-node /tmp/fennel-node && \
+    # Clean up build artifacts that aren't needed
+    rm -rf /fennel/target/release/build/*/out && \
+    rm -rf /fennel/target/release/.fingerprint
 
 # Runtime stage - final image with minimal components
 FROM docker.io/parity/base-bin:latest
 
 # Copy the node binary
-COPY --from=builder /fennel/target/release/fennel-node /usr/local/bin/fennel-node
+COPY --from=builder /tmp/fennel-node /usr/local/bin/fennel-node
 
 # Copy the deterministic wasm compiled with srtool (optional but convenient for
 # governance upgrades & CI verification)
