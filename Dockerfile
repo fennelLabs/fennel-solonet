@@ -3,7 +3,9 @@ FROM docker.io/paritytech/ci-unified:latest as base
 WORKDIR /fennel
 
 # Install cargo-chef and pre-fetch the wasm target once (minimal profile saves disk space)
-RUN cargo install cargo-chef \
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/usr/local/cargo/git \
+    cargo install cargo-chef \
     && rustup target add wasm32-unknown-unknown --toolchain 1.84.1-x86_64-unknown-linux-gnu
 
 # Avoid extra git clone storage in cargo registry (optional but helps disk)
@@ -17,7 +19,10 @@ RUN cargo chef prepare --recipe-path recipe.json
 # Testing stage - run tests before building
 FROM base AS tester
 COPY . .
-RUN cargo test --features=runtime-benchmarks
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/usr/local/cargo/git \
+    --mount=type=cache,target=/fennel/target \
+    cargo test --features=runtime-benchmarks
 
 # --- New stage: deterministic WASM runtime build using srtool -----------------
 FROM docker.io/paritytech/srtool:1.84.1 AS srtool
@@ -35,7 +40,9 @@ ENV PACKAGE=fennel-node-runtime
 
 # Build the runtime in deterministic mode. The build script lives inside the
 # image under /scripts/build
-RUN /srtool/build
+RUN --mount=type=cache,target=/usr/local/cargo/registry,uid=1000,gid=1000 \
+    --mount=type=cache,target=/usr/local/cargo/git,uid=1000,gid=1000 \
+    /srtool/build
 
 # The compact deterministic wasm will be available below.
 ENV DETERMINISTIC_WASM_PATH=target/srtool/release/wbuild/fennel-node-runtime/fennel_node_runtime.compact.wasm
@@ -43,10 +50,16 @@ ENV DETERMINISTIC_WASM_PATH=target/srtool/release/wbuild/fennel-node-runtime/fen
 # Builder stage - build with cached dependencies
 FROM base AS builder
 COPY --from=planner /fennel/recipe.json recipe.json
-RUN cargo chef cook --release --recipe-path recipe.json
-COPY . .
-RUN cargo build --locked --release
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/usr/local/cargo/git \
+    --mount=type=cache,target=/fennel/target \
+    cargo chef cook --release --recipe-path recipe.json
 
+COPY . .
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/usr/local/cargo/git \
+    --mount=type=cache,target=/fennel/target \
+    cargo build --locked --release
 
 # Runtime stage - final image with minimal components
 FROM docker.io/parity/base-bin:latest
