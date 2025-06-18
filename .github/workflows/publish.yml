@@ -1,11 +1,12 @@
+---
 name: Build and Publish Fennel Node
 
-# Configures this workflow to run every time a change is pushed to the branch called `release`.
+# Configures this workflow to run every time a change is pushed to main.
 on:
   push:
     branches: ['main']
 
-# Defines two custom environment variables for the workflow. These are used for the Container registry domain, and a name for the Docker image that this workflow builds.
+# Defines custom environment variables for the workflow.
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
@@ -21,7 +22,7 @@ env:
       "/dns4/fennel-bootnode-2.fennel-staging.svc.cluster.local/tcp/30333/p2p/12D3KooWDbfFv6oepAXmQaiwFaVjD9g7AxowQ8LQdWTcVYpKhnAx"
     ]
 
-# There are multiple jobs in this workflow. Each job is responsible for a specific task.
+# Multiple jobs workflow for parallel execution
 jobs:
   # Job 1: Build deterministic runtime with srtool
   build-runtime:
@@ -43,17 +44,15 @@ jobs:
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
-      
-      # ------------------------------------------------------------
+
       # Build the runtime deterministically with srtool and capture
       # its SHA-256 so we can inject it as an OCI label.
-      # ------------------------------------------------------------
       - name: Build runtime with srtool & extract Wasm hash
         id: wasm
         run: |
           set -euo pipefail
           echo "🛠️  Running srtool to build compact runtime…"
-          # Build runtime inside srtool container (outputs verbose log to console)
+          # Build runtime inside srtool container
           docker run --rm \
             -v "${PWD}":/build \
             -e RUNTIME_DIR=runtime/fennel \
@@ -61,8 +60,9 @@ jobs:
             --workdir /build \
             paritytech/srtool:1.84.1 /srtool/build
 
-          # After the container exits the compiled Wasm lives in the mounted volume
-          HASH=$(sha256sum runtime/fennel/target/srtool/release/wbuild/fennel-node-runtime/fennel_node_runtime.compact.wasm | awk '{print "0x"$1}')
+          # After the container exits the compiled Wasm lives in mounted volume
+          WASM_FILE="runtime/fennel/target/srtool/release/wbuild/fennel-node-runtime/fennel_node_runtime.compact.wasm"
+          HASH=$(sha256sum "$WASM_FILE" | awk '{print "0x"$1}')
           echo "hash=$HASH" >> $GITHUB_OUTPUT
           echo "✅ Deterministic Wasm hash: $HASH"
 
@@ -70,7 +70,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: fennel-runtime
-          path: runtime/fennel/target/srtool/release/wbuild/fennel-node-runtime/fennel_node_runtime.compact.wasm
+          path: >-
+            runtime/fennel/target/srtool/release/wbuild/fennel-node-runtime/fennel_node_runtime.compact.wasm
           retention-days: 1
 
   # Job 2: Generate chain specifications (depends on runtime)
@@ -88,13 +89,15 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: fennel-runtime
-          path: runtime/fennel/target/srtool/release/wbuild/fennel-node-runtime/
+          path: >-
+            runtime/fennel/target/srtool/release/wbuild/fennel-node-runtime/
 
       - name: Cache chain-spec-builder
         uses: actions/cache@v4
         with:
           path: ~/.cargo/bin/chain-spec-builder
-          key: ${{ runner.os }}-chain-spec-builder-${{ hashFiles('**/Cargo.lock') }}
+          key: >-
+            ${{ runner.os }}-chain-spec-builder-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-chain-spec-builder-
 
@@ -102,14 +105,15 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y jq
           mkdir -p "${HOME}/.cargo/bin"
-          
+
           docker run --rm \
             -v "${PWD}":/build \
             -v "${HOME}/.cargo/bin":/cargo-bin \
             --workdir /build \
             paritytech/ci-unified:latest \
             bash -c "
-              cargo install staging-chain-spec-builder --locked --root /tmp/cargo-install && \
+              cargo install staging-chain-spec-builder --locked \
+                --root /tmp/cargo-install && \
               cp /tmp/cargo-install/bin/chain-spec-builder /cargo-bin/
             "
           echo "${HOME}/.cargo/bin" >> $GITHUB_PATH
@@ -118,13 +122,14 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p chainspecs/development
-          
+
+          WASM_FILE="runtime/fennel/target/srtool/release/wbuild/fennel-node-runtime/fennel_node_runtime.compact.wasm"
           chain-spec-builder \
             -c chainspecs/development/development.json \
             create \
-            -r runtime/fennel/target/srtool/release/wbuild/fennel-node-runtime/fennel_node_runtime.compact.wasm \
+            -r "$WASM_FILE" \
             named-preset development
-          
+
           chain-spec-builder \
             -c chainspecs/development/development-raw.json \
             convert-to-raw \
@@ -134,13 +139,14 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p chainspecs/staging
-          
+
+          WASM_FILE="runtime/fennel/target/srtool/release/wbuild/fennel-node-runtime/fennel_node_runtime.compact.wasm"
           chain-spec-builder \
             -c chainspecs/staging/staging-chainspec.json \
             create \
-            -r runtime/fennel/target/srtool/release/wbuild/fennel-node-runtime/fennel_node_runtime.compact.wasm \
+            -r "$WASM_FILE" \
             named-preset staging
-          
+
           chain-spec-builder \
             -c chainspecs/staging/staging-raw.json \
             convert-to-raw \
@@ -149,43 +155,49 @@ jobs:
       - name: Inject bootnodes
         run: |
           set -euo pipefail
-          
+
           # Function to inject bootnodes
           inject_bootnodes() {
             local spec_file=$1
             local target=$2
-            
+
             ALL_BOOTNODES=$(jq -c -n \
               --argjson ext "$EXTERNAL_BOOTNODES" \
               --argjson int "$INTERNAL_BOOTNODES" \
               '$ext + $int')
-            
+
             CURRENT_BOOTNODES=$(jq -c '.bootNodes // []' "$spec_file")
             if [ "$CURRENT_BOOTNODES" != "$ALL_BOOTNODES" ]; then
               echo "📝 Updating bootNodes in ${target} chain spec..."
-              jq --argjson arr "$ALL_BOOTNODES" '.bootNodes = $arr' "$spec_file" > tmp.json && mv tmp.json "$spec_file"
-              
-              # Regenerate raw spec
-              local raw_file="${spec_file%-chainspec.json}-raw.json"
-              [ "$target" = "development" ] && raw_file="${spec_file%.json}-raw.json"
-              
-              chain-spec-builder -c "$raw_file" convert-to-raw "$spec_file"
+              jq --argjson arr "$ALL_BOOTNODES" \
+                '.bootNodes = $arr' "$spec_file" > tmp.json && \
+                mv tmp.json "$spec_file"
+
+                              # Regenerate raw spec
+                local raw_file="${spec_file%-chainspec.json}-raw.json"
+                [ "$target" = "development" ] && \
+                  raw_file="${spec_file%.json}-raw.json"
+
+                              chain-spec-builder -c "$raw_file" convert-to-raw \
+                  "$spec_file"
               echo "✅ Bootnodes updated for $target"
             else
               echo "✅ No changes needed for $target bootnodes"
             fi
           }
-          
-          inject_bootnodes "chainspecs/development/development.json" "development"
-          inject_bootnodes "chainspecs/staging/staging-chainspec.json" "staging"
+
+          inject_bootnodes \
+            "chainspecs/development/development.json" "development"
+          inject_bootnodes \
+            "chainspecs/staging/staging-chainspec.json" "staging"
 
       - name: Commit chain specs
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          
+
           git add chainspecs/
-          
+
           if ! git diff --staged --quiet; then
             git commit -m "Update chain specs with bootnodes [ci skip]"
             git push origin ${GITHUB_REF#refs/heads/}
@@ -215,6 +227,30 @@ jobs:
       image-digest: ${{ steps.build.outputs.digest }}
       sha-tag: ${{ steps.extract-tag.outputs.tag }}
     steps:
+      - name: Free up disk space
+        run: |
+          echo "🧹 Freeing up disk space..."
+          df -h
+          
+          # Remove unnecessary packages and files
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo rm -rf /usr/local/share/boost
+          sudo rm -rf /usr/lib/jvm
+          sudo rm -rf /usr/share/swift
+          
+          # Clean package caches
+          sudo apt-get clean
+          sudo apt-get autoremove -y
+          
+          # Clean Docker system
+          docker system prune -af --volumes
+          
+          echo "🎯 Disk space after cleanup:"
+          df -h
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -223,7 +259,8 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: fennel-runtime
-          path: runtime/fennel/target/srtool/release/wbuild/fennel-node-runtime/
+          path: >-
+            runtime/fennel/target/srtool/release/wbuild/fennel-node-runtime/
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -245,7 +282,8 @@ jobs:
       - name: Create lowercase repository name for cache
         id: repo-name
         run: |
-          echo "cache-repo=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+          REPO_LOWER=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')
+          echo "cache-repo=$REPO_LOWER" >> $GITHUB_OUTPUT
 
       - name: Extract metadata for Docker
         id: meta
@@ -263,9 +301,17 @@ jobs:
         id: extract-tag
         run: |
           # Extract the sha-prefixed tag from metadata output
-          SHA_TAG=$(echo '${{ steps.meta.outputs.tags }}' | grep -o 'sha-[a-f0-9]*' | head -1)
+          SHA_TAG=$(echo '${{ steps.meta.outputs.tags }}' | \
+            grep -o 'sha-[a-f0-9]*' | head -1)
           echo "tag=$SHA_TAG" >> $GITHUB_OUTPUT
           echo "Extracted SHA tag: $SHA_TAG"
+
+      - name: Check disk space before build
+        run: |
+          echo "💾 Disk space before Docker build:"
+          df -h
+          echo "🗂️  Docker system info:"
+          docker system df
 
       - name: Build and push Docker image
         id: build
@@ -290,7 +336,9 @@ jobs:
           sbom: false
           # Enable advanced BuildKit features for better caching
           platforms: linux/amd64
-          
+          # Add shared memory size for large builds
+          shm-size: 2g
+
       # Create and upload artifact containing image info
       - name: Output image info to artifact
         run: |
@@ -299,14 +347,23 @@ jobs:
           echo "Tags:      ${{ steps.meta.outputs.tags }}" >> ./artifacts/image-info.txt
           echo "Wasm hash: ${{ needs.build-runtime.outputs.wasm-hash }}" >> ./artifacts/image-info.txt
           echo "Digest:    ${{ steps.build.outputs.digest }}" >> ./artifacts/image-info.txt
-          echo "Created:   $(date -u +\"%Y-%m-%dT%H:%M:%SZ\")" >> ./artifacts/image-info.txt
-          
+          echo "Created:   $(date -u +\"%Y-%m-%dT%H:%M:%SZ\")" >> \
+            ./artifacts/image-info.txt
+
       - name: Upload Docker image info artifact
         uses: actions/upload-artifact@v4
         with:
           name: fennel-node-image-info
           path: ./artifacts/image-info.txt
           retention-days: 30
+
+      - name: Clean up after build
+        if: always()
+        run: |
+          echo "🧹 Final cleanup..."
+          docker system prune -af --volumes
+          echo "💾 Final disk space:"
+          df -h
 
   # Job 4: Lint Helm chart (can run in parallel with build jobs)
   lint-helm:
@@ -324,7 +381,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: Charts/fennel-node/charts
-          key: ${{ runner.os }}-helm-${{ hashFiles('Charts/fennel-node/Chart.lock') }}
+          key: >-
+            ${{ runner.os }}-helm-${{ hashFiles('Charts/fennel-node/Chart.lock') }}
           restore-keys: |
             ${{ runner.os }}-helm-
 
@@ -342,9 +400,10 @@ jobs:
         run: |
           echo "🔍 Linting base chart..."
           helm lint Charts/fennel-node
-          
+
           echo "🔍 Linting with staging values..."
-          helm lint Charts/fennel-node -f Charts/fennel-node/values-staging.yaml
+          helm lint Charts/fennel-node \
+            -f Charts/fennel-node/values-staging.yaml
 
   # Job 5: Package and publish Helm chart (depends on docker build and lint)
   publish-helm:
@@ -366,7 +425,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: Charts/fennel-node/charts
-          key: ${{ runner.os }}-helm-${{ hashFiles('Charts/fennel-node/Chart.lock') }}
+          key: >-
+            ${{ runner.os }}-helm-${{ hashFiles('Charts/fennel-node/Chart.lock') }}
           restore-keys: |
             ${{ runner.os }}-helm-
 
@@ -406,7 +466,8 @@ jobs:
       - name: Configure Git for chart release
         run: |
           git config user.name "$GITHUB_ACTOR"
-          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+          git config user.email \
+            "$GITHUB_ACTOR@users.noreply.github.com"
 
       - name: Run chart-releaser
         uses: helm/chart-releaser-action@v1.6.0
@@ -435,24 +496,35 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🛠️ Runtime Build" >> $GITHUB_STEP_SUMMARY
           echo "- **Status**: ${{ needs.build-runtime.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Wasm Hash**: \`${{ needs.build-runtime.outputs.wasm-hash }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Wasm Hash**: \`${{ needs.build-runtime.outputs.wasm-hash }}\`" >> \
+            $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📋 Chain Specs" >> $GITHUB_STEP_SUMMARY
-          echo "- **Status**: ${{ needs.generate-chainspecs.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Development and staging specs generated" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: ${{ needs.generate-chainspecs.result }}" >> \
+            $GITHUB_STEP_SUMMARY
+          echo "- ✅ Development and staging specs generated" >> \
+            $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🐳 Docker Image" >> $GITHUB_STEP_SUMMARY
           echo "- **Status**: ${{ needs.build-docker.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Image**: \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Tag**: \`${{ needs.build-docker.outputs.sha-tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image**: \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}\`" >> \
+            $GITHUB_STEP_SUMMARY
+          echo "- **Tag**: \`${{ needs.build-docker.outputs.sha-tag }}\`" >> \
+            $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📦 Helm Chart" >> $GITHUB_STEP_SUMMARY
           echo "- **Status**: ${{ needs.publish-helm.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Chart packaged and published to GitHub Pages" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Chart packaged and published to GitHub Pages" >> \
+            $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🎯 Overall Status" >> $GITHUB_STEP_SUMMARY
-          if [[ "${{ needs.build-runtime.result }}" == "success" && "${{ needs.generate-chainspecs.result }}" == "success" && "${{ needs.build-docker.result }}" == "success" && "${{ needs.publish-helm.result }}" == "success" ]]; then
-            echo "✅ **All jobs completed successfully!**" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ needs.build-runtime.result }}" == "success" && \
+                "${{ needs.generate-chainspecs.result }}" == "success" && \
+                "${{ needs.build-docker.result }}" == "success" && \
+                "${{ needs.publish-helm.result }}" == "success" ]]; then
+            echo "✅ **All jobs completed successfully!**" >> \
+              $GITHUB_STEP_SUMMARY
           else
-            echo "❌ **Some jobs failed. Check individual job logs.**" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **Some jobs failed. Check individual job logs.**" >> \
+              $GITHUB_STEP_SUMMARY
           fi
