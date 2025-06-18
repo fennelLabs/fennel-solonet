@@ -1,4 +1,4 @@
-name: Create and publish a Docker image
+name: Build and Publish Fennel Node
 
 # Configures this workflow to run every time a change is pushed to the branch called `release`.
 on:
@@ -21,15 +21,13 @@ env:
       "/dns4/fennel-bootnode-2.fennel-staging.svc.cluster.local/tcp/30333/p2p/12D3KooWDbfFv6oepAXmQaiwFaVjD9g7AxowQ8LQdWTcVYpKhnAx"
     ]
 
-# There is a single job in this workflow. It's configured to run on the latest available version of Ubuntu.
+# There are multiple jobs in this workflow. Each job is responsible for a specific task.
 jobs:
-  build-and-push-image:
+  # Job 1: Build deterministic runtime with srtool
+  build-runtime:
     runs-on: ubuntu-latest
-    # Sets the permissions granted to the `GITHUB_TOKEN` for the actions in this job.
-    permissions:
-      contents: write  # Changed from read to write to allow pushing commits
-      packages: write
-      #
+    outputs:
+      wasm-hash: ${{ steps.wasm.outputs.hash }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -126,20 +124,36 @@ jobs:
           echo "=== Disk usage after cleanup ==="
           df -h
 
-      # ------------------------------------------------------------
-      # Generate chain specifications using chain-spec-builder
-      # ------------------------------------------------------------
-      - name: Install jq for JSON processing
+      # Upload runtime artifact
+      - name: Upload runtime artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fennel-runtime
+          path: runtime/fennel/target/srtool/release/wbuild/fennel-node-runtime/fennel_node_runtime.compact.wasm
+          retention-days: 1
+
+  # Job 2: Generate chain specifications (depends on runtime)
+  generate-chainspecs:
+    runs-on: ubuntu-latest
+    needs: build-runtime
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Download runtime artifact
+      - name: Download runtime artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: fennel-runtime
+          path: runtime/fennel/target/srtool/release/wbuild/fennel-node-runtime/
+
+      - name: Install dependencies
         run: |
           sudo apt-get update && sudo apt-get install -y jq
-          echo "✅ Installed jq"
-
-      - name: Install chain-spec-builder
-        run: |
-          # Create directory for chain-spec-builder
           mkdir -p "${HOME}/.cargo/bin"
           
-          # Use Parity's prebuilt container that has Rust, protoc, and all dependencies
           docker run --rm \
             -v "${PWD}":/build \
             -v "${HOME}/.cargo/bin":/cargo-bin \
@@ -149,273 +163,141 @@ jobs:
               cargo install staging-chain-spec-builder --locked --root /tmp/cargo-install && \
               cp /tmp/cargo-install/bin/chain-spec-builder /cargo-bin/
             "
-          echo "✅ Installed chain-spec-builder"
-          
-          # Add cargo bin to PATH for subsequent steps
           echo "${HOME}/.cargo/bin" >> $GITHUB_PATH
 
-      - name: Create development chain spec
+      - name: Generate development chain specs
         run: |
           set -euo pipefail
-          
-          # Create development directory in chainspecs if it doesn't exist
           mkdir -p chainspecs/development
           
-          # Debug: Check chain-spec-builder version and help
-          echo "Chain-spec-builder version:"
-          chain-spec-builder --version || echo "No version flag available"
-          
-          echo -e "\nChain-spec-builder help:"
-          chain-spec-builder --help || echo "No help available"
-          
-          echo -e "\nChain-spec-builder create help:"
-          chain-spec-builder create --help || echo "No create help available"
-          
-          # Check if the runtime has a development preset
-          echo "Checking available presets..."
-          chain-spec-builder list-presets \
-            --runtime runtime/fennel/target/srtool/release/wbuild/fennel-node-runtime/fennel_node_runtime.compact.wasm || true
-          
-          # Check if runtime exists
-          echo "Checking if runtime WASM exists..."
-          ls -la runtime/fennel/target/srtool/release/wbuild/fennel-node-runtime/fennel_node_runtime.compact.wasm || echo "Runtime WASM not found!"
-          
-          # Generate development chain spec
-          echo "Creating development chain spec..."
           chain-spec-builder \
             -c chainspecs/development/development.json \
             create \
             -r runtime/fennel/target/srtool/release/wbuild/fennel-node-runtime/fennel_node_runtime.compact.wasm \
             named-preset development
           
-          # Convert to raw format
-          echo "Converting to raw format..."
           chain-spec-builder \
             -c chainspecs/development/development-raw.json \
             convert-to-raw \
             chainspecs/development/development.json
-          
-          # Verify the specs were created
-          echo "✅ Generated chain specifications:"
-          ls -l chainspecs/development/
-          
-          # Quick verification of content
-          echo "Verifying development.json content:"
-          jq '.name' chainspecs/development/development.json || echo "Failed to parse JSON"
-          
-          # Comprehensive verification
-          echo -e "\n📋 Verification of generated files:"
-          ls -l chainspecs/development/development.json chainspecs/development/development-raw.json
-          
-          echo -e "\n📄 Chain spec structure (first 5 lines):"
-          jq . chainspecs/development/development.json 2>/dev/null | head -n 5 || true
-          
-          echo -e "\n🔍 Checking file sizes:"
-          stat -c "development.json: %s bytes" chainspecs/development/development.json
-          stat -c "development-raw.json: %s bytes" chainspecs/development/development-raw.json
-          
-          # Verify raw spec is SCALE-encoded (not JSON)
-          echo -e "\n🔬 Verifying raw spec format (first 200 bytes):"
-          head -c 200 chainspecs/development/development-raw.json | xxd | head -n 5 || echo "Could not read raw spec"
-          
-          # Ensure files are not empty
-          if [ ! -s chainspecs/development/development.json ]; then
-            echo "❌ Error: development.json is empty!"
-            exit 1
-          fi
-          if [ ! -s chainspecs/development/development-raw.json ]; then
-            echo "❌ Error: development-raw.json is empty!"
-            exit 1
-          fi
-          echo "✅ All development chain spec files are populated"
 
-      - name: Inject bootnodes into development chain spec
+      - name: Generate staging chain specs
         run: |
           set -euo pipefail
-          
-          echo "🔗 Injecting bootnodes into development chain spec..."
-          
-          TARGET="development"
-          SPEC="chainspecs/${TARGET}/development.json"
-          
-          # Merge external and internal bootnodes using jq
-          ALL_BOOTNODES=$(jq -c -n \
-            --argjson ext "$EXTERNAL_BOOTNODES" \
-            --argjson int "$INTERNAL_BOOTNODES" \
-            '$ext + $int')
-          
-          # Only update if there are changes (idempotent)
-          CURRENT_BOOTNODES=$(jq -c '.bootNodes // []' "$SPEC")
-          if [ "$CURRENT_BOOTNODES" != "$ALL_BOOTNODES" ]; then
-            echo "📝 Updating bootNodes in ${TARGET} chain spec..."
-            jq --argjson arr "$ALL_BOOTNODES" '.bootNodes = $arr' "$SPEC" > tmp.json && mv tmp.json "$SPEC"
-            
-            # Regenerate raw spec with bootnodes included
-            echo "🔄 Regenerating raw ${TARGET} spec with bootnodes..."
-            chain-spec-builder \
-              -c "chainspecs/${TARGET}/development-raw.json" \
-              convert-to-raw \
-              "chainspecs/${TARGET}/development.json"
-            
-            echo "✅ Bootnodes updated successfully"
-          else
-            echo "✅ No changes needed - bootnodes already up to date"
-          fi
-          
-          # Verify bootnodes configuration
-          echo "📊 Current bootNodes configuration:"
-          jq '.bootNodes' "$SPEC" || echo "No bootNodes found"
-
-      - name: Commit development chainspecs to repository
-        run: |
-          # Configure git
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          
-          # Add the development chainspecs
-          git add chainspecs/development/development.json chainspecs/development/development-raw.json
-          
-          # Check if there are changes to commit
-          if git diff --staged --quiet; then
-            echo "No changes to development chainspecs"
-          else
-            # Commit the changes with [ci skip] to prevent retriggering
-            git commit -m "Update development chainspecs with bootnodes [ci skip]"
-            
-            # Push the changes back to the repository
-            git push origin ${GITHUB_REF#refs/heads/}
-            
-            echo "✅ Development chainspecs committed and pushed to repository on branch ${GITHUB_REF#refs/heads/}"
-          fi
-
-      - name: Create staging chain specs
-        run: |
-          set -euo pipefail
-          
-          # Create staging directory in chainspecs if it doesn't exist
           mkdir -p chainspecs/staging
           
-          # Generate staging chain spec
-          echo "Generating staging chain spec..."
           chain-spec-builder \
             -c chainspecs/staging/staging-chainspec.json \
             create \
             -r runtime/fennel/target/srtool/release/wbuild/fennel-node-runtime/fennel_node_runtime.compact.wasm \
             named-preset staging
           
-          # Generate raw staging chain spec
-          echo "Generating raw staging chain spec..."
           chain-spec-builder \
             -c chainspecs/staging/staging-raw.json \
             convert-to-raw \
             chainspecs/staging/staging-chainspec.json
-          
-          # Verify the staging specs were created
-          echo "✅ Generated staging chain specifications:"
-          ls -la chainspecs/staging/
-          
-          # Quick verification of content
-          echo "Verifying staging-chainspec.json content:"
-          jq '.name' chainspecs/staging/staging-chainspec.json || echo "Failed to parse JSON"
-          
-          # Comprehensive verification
-          echo -e "\n📋 Verification of generated files:"
-          ls -l chainspecs/staging/staging-chainspec.json chainspecs/staging/staging-raw.json
-          
-          echo -e "\n📄 Chain spec structure (first 5 lines):"
-          jq . chainspecs/staging/staging-chainspec.json 2>/dev/null | head -n 5 || true
-          
-          echo -e "\n🔍 Checking file sizes:"
-          stat -c "staging-chainspec.json: %s bytes" chainspecs/staging/staging-chainspec.json
-          stat -c "staging-raw.json: %s bytes" chainspecs/staging/staging-raw.json
-          
-          # Verify raw spec is SCALE-encoded (not JSON)
-          echo -e "\n🔬 Verifying raw spec format (first 200 bytes):"
-          head -c 200 chainspecs/staging/staging-raw.json | xxd | head -n 5 || echo "Could not read raw spec"
-          
-          # Ensure files are not empty
-          if [ ! -s chainspecs/staging/staging-chainspec.json ]; then
-            echo "❌ Error: staging-chainspec.json is empty!"
-            exit 1
-          fi
-          if [ ! -s chainspecs/staging/staging-raw.json ]; then
-            echo "❌ Error: staging-raw.json is empty!"
-            exit 1
-          fi
-          echo "✅ All staging chain spec files are populated"
 
-      - name: Inject bootnodes into staging chain spec
+      - name: Inject bootnodes
         run: |
           set -euo pipefail
           
-          echo "🔗 Injecting bootnodes into staging chain spec..."
-          
-          TARGET="staging"
-          SPEC="chainspecs/${TARGET}/staging-chainspec.json"
-          
-          # Merge external and internal bootnodes using jq
-          ALL_BOOTNODES=$(jq -c -n \
-            --argjson ext "$EXTERNAL_BOOTNODES" \
-            --argjson int "$INTERNAL_BOOTNODES" \
-            '$ext + $int')
-          
-          # Only update if there are changes (idempotent)
-          CURRENT_BOOTNODES=$(jq -c '.bootNodes // []' "$SPEC")
-          if [ "$CURRENT_BOOTNODES" != "$ALL_BOOTNODES" ]; then
-            echo "📝 Updating bootNodes in ${TARGET} chain spec..."
-            jq --argjson arr "$ALL_BOOTNODES" '.bootNodes = $arr' "$SPEC" > tmp.json && mv tmp.json "$SPEC"
+          # Function to inject bootnodes
+          inject_bootnodes() {
+            local spec_file=$1
+            local target=$2
             
-            # Regenerate raw spec with bootnodes included
-            echo "🔄 Regenerating raw ${TARGET} spec with bootnodes..."
-            chain-spec-builder \
-              -c "chainspecs/${TARGET}/staging-raw.json" \
-              convert-to-raw \
-              "chainspecs/${TARGET}/staging-chainspec.json"
+            ALL_BOOTNODES=$(jq -c -n \
+              --argjson ext "$EXTERNAL_BOOTNODES" \
+              --argjson int "$INTERNAL_BOOTNODES" \
+              '$ext + $int')
             
-            echo "✅ Bootnodes updated successfully"
-          else
-            echo "✅ No changes needed - bootnodes already up to date"
-          fi
+            CURRENT_BOOTNODES=$(jq -c '.bootNodes // []' "$spec_file")
+            if [ "$CURRENT_BOOTNODES" != "$ALL_BOOTNODES" ]; then
+              echo "📝 Updating bootNodes in ${target} chain spec..."
+              jq --argjson arr "$ALL_BOOTNODES" '.bootNodes = $arr' "$spec_file" > tmp.json && mv tmp.json "$spec_file"
+              
+              # Regenerate raw spec
+              local raw_file="${spec_file%-chainspec.json}-raw.json"
+              [ "$target" = "development" ] && raw_file="${spec_file%.json}-raw.json"
+              
+              chain-spec-builder -c "$raw_file" convert-to-raw "$spec_file"
+              echo "✅ Bootnodes updated for $target"
+            else
+              echo "✅ No changes needed for $target bootnodes"
+            fi
+          }
           
-          # Verify bootnodes configuration
-          echo "📊 Current bootNodes configuration:"
-          jq '.bootNodes' "$SPEC" || echo "No bootNodes found"
+          inject_bootnodes "chainspecs/development/development.json" "development"
+          inject_bootnodes "chainspecs/staging/staging-chainspec.json" "staging"
 
-      - name: Commit staging chainspecs to repository
+      - name: Commit chain specs
         run: |
-          # Configure git
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           
-          # Add the staging chainspecs
-          git add chainspecs/staging/staging-chainspec.json chainspecs/staging/staging-raw.json
+          git add chainspecs/
           
-          # Check if there are changes to commit
-          if git diff --staged --quiet; then
-            echo "No changes to staging chainspecs"
-          else
-            # Commit the changes with [ci skip] to prevent retriggering
-            git commit -m "Update staging chainspecs with bootnodes [ci skip]"
-            
-            # Push the changes back to the repository
+          if ! git diff --staged --quiet; then
+            git commit -m "Update chain specs with bootnodes [ci skip]"
             git push origin ${GITHUB_REF#refs/heads/}
-            
-            echo "✅ Staging chainspecs committed and pushed to repository on branch ${GITHUB_REF#refs/heads/}"
+            echo "✅ Chain specs committed and pushed"
+          else
+            echo "No changes to chain specs"
           fi
 
-      - name: Upload chain specs as artifacts
+      - name: Upload chain specs artifact
         uses: actions/upload-artifact@v4
         with:
           name: fennel-chainspecs
           path: |
-            chainspecs/development/development.json
-            chainspecs/development/development-raw.json
-            chainspecs/staging/staging-chainspec.json
-            chainspecs/staging/staging-raw.json
-      
-      # This step uses the `docker/build-push-action` action to build the image, based on your repository's `Dockerfile`. If the build succeeds, it pushes the image to GitHub Packages.
-      # It uses the `context` parameter to define the build's context as the set of files located in the specified path. For more information, see "[Usage](https://github.com/docker/build-push-action#usage)" in the README of the `docker/build-push-action` repository.
-      # It uses the `tags` and `labels` parameters to tag and label the image with the output from the "meta" step.
+            chainspecs/development/
+            chainspecs/staging/
+          retention-days: 30
+
+  # Job 3: Build and push Docker image (depends on runtime)
+  build-docker:
+    runs-on: ubuntu-latest
+    needs: build-runtime
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image-tags: ${{ steps.meta.outputs.tags }}
+      image-digest: ${{ steps.build.outputs.digest }}
+      sha-tag: ${{ steps.extract-tag.outputs.tag }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Download runtime artifact
+      - name: Download runtime artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: fennel-runtime
+          path: runtime/fennel/target/srtool/release/wbuild/fennel-node-runtime/
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,format=long
+
       - name: Build and push Docker image
         id: build
         uses: docker/build-push-action@v5
@@ -425,7 +307,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            WASM_HASH=${{ env.WASM_HASH }}
+            WASM_HASH=${{ needs.build-runtime.outputs.wasm-hash }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: false
@@ -436,7 +318,7 @@ jobs:
           mkdir -p ./artifacts
           echo "Image name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}" > ./artifacts/image-info.txt
           echo "Tags:      ${{ steps.meta.outputs.tags }}" >> ./artifacts/image-info.txt
-          echo "Wasm hash: ${{ env.WASM_HASH }}"          >> ./artifacts/image-info.txt
+          echo "Wasm hash: ${{ needs.build-runtime.outputs.wasm-hash }}" >> ./artifacts/image-info.txt
           echo "Digest:    ${{ steps.build.outputs.digest }}" >> ./artifacts/image-info.txt
           echo "Created:   $(date -u +\"%Y-%m-%dT%H:%M:%SZ\")" >> ./artifacts/image-info.txt
           
@@ -445,3 +327,137 @@ jobs:
         with:
           name: fennel-node-image-info
           path: ./artifacts/image-info.txt
+          retention-days: 30
+
+  # Job 4: Lint Helm chart (can run in parallel with build jobs)
+  lint-helm:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: 'v3.13.0'
+
+      - name: Add Parity Helm repo
+        run: |
+          helm repo add parity https://paritytech.github.io/helm-charts
+          helm repo update
+
+      - name: Update Helm dependencies
+        run: |
+          cd Charts/fennel-node
+          helm dependency update
+
+      - name: Lint Helm chart
+        run: |
+          echo "🔍 Linting base chart..."
+          helm lint Charts/fennel-node
+          
+          echo "🔍 Linting with staging values..."
+          helm lint Charts/fennel-node -f Charts/fennel-node/values-staging.yaml
+
+  # Job 5: Package and publish Helm chart (depends on docker build and lint)
+  publish-helm:
+    runs-on: ubuntu-latest
+    needs: [build-docker, lint-helm]
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: 'v3.13.0'
+
+      - name: Add Parity Helm repo
+        run: |
+          helm repo add parity https://paritytech.github.io/helm-charts
+          helm repo update
+
+      - name: Update Helm dependencies
+        run: |
+          cd Charts/fennel-node
+          helm dependency update
+
+      - name: Update image tags in values files
+        uses: fjogeleit/yaml-update-action@v0.13.2
+        with:
+          valueFile: 'Charts/fennel-node/values.yaml'
+          propertyPath: 'image.tag'
+          value: ${{ needs.build-docker.outputs.sha-tag }}
+          commitChange: false
+
+      - name: Update staging values file
+        uses: fjogeleit/yaml-update-action@v0.13.2
+        with:
+          valueFile: 'Charts/fennel-node/values-staging.yaml'
+          propertyPath: 'image.tag'
+          value: ${{ needs.build-docker.outputs.sha-tag }}
+          commitChange: false
+
+      - name: Package Helm chart
+        run: |
+          mkdir -p release
+          helm package Charts/fennel-node --destination release
+          echo "📦 Packaged chart:"
+          ls -la release/
+
+      - name: Configure Git for chart release
+        run: |
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+
+      - name: Run chart-releaser
+        uses: helm/chart-releaser-action@v1.6.0
+        with:
+          charts_dir: Charts
+          skip_existing: true
+        env:
+          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+
+      - name: Upload Helm chart artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fennel-helm-chart
+          path: release/*.tgz
+          retention-days: 30
+
+  # Job 6: Generate final workflow summary (depends on all jobs)
+  summary:
+    runs-on: ubuntu-latest
+    needs: [build-runtime, generate-chainspecs, build-docker, publish-helm]
+    if: always()
+    steps:
+      - name: Generate workflow summary
+        run: |
+          echo "## 📊 Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🛠️ Runtime Build" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: ${{ needs.build-runtime.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Wasm Hash**: \`${{ needs.build-runtime.outputs.wasm-hash }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📋 Chain Specs" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: ${{ needs.generate-chainspecs.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Development and staging specs generated" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🐳 Docker Image" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: ${{ needs.build-docker.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image**: \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tag**: \`${{ needs.build-docker.outputs.sha-tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 Helm Chart" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: ${{ needs.publish-helm.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Chart packaged and published to GitHub Pages" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🎯 Overall Status" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ needs.build-runtime.result }}" == "success" && "${{ needs.generate-chainspecs.result }}" == "success" && "${{ needs.build-docker.result }}" == "success" && "${{ needs.publish-helm.result }}" == "success" ]]; then
+            echo "✅ **All jobs completed successfully!**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Some jobs failed. Check individual job logs.**" >> $GITHUB_STEP_SUMMARY
+          fi

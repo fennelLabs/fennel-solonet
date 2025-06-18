@@ -1,22 +1,37 @@
-# Docker image for the fennel-solonet node
+# Base image settings (overwritten in CI)
 image:
-  repository: "PLACEHOLDER_REGISTRY/fennel-solonet-node"  # CI will inject actual registry/repo
-  tag:        "dev-placeholder"                           # CI will inject actual tag or digest
+  repository: "ghcr.io/corruptedaesthetic/fennel-solonet"
+  tag:        "dev-placeholder"
 
-# Chainspec file reference (ConfigMap key)
+# Which key in the ConfigMap to use for genesis config
 chainspec:
-  file: "PLACEHOLDER_CHAINSPEC.json"                      # CI will inject actual chainspec file name
+  file: "development.json"
 
-# Parity 'node' subchart overrides
+# ConfigMap name holding the chain spec (overwritten in CI)
+# Production-grade defaults (can all be overridden in env-specific files)
 node:
-  chainSpecConfigMap: "PLACEHOLDER_CHAINSPEC_CONFIGMAP"   # CI will inject actual ConfigMap name
-  resources:
-    requests:
-      cpu:    200m
-      memory: 256Mi
-    limits:
-      cpu:    500m
-      memory: 512Mi
+  chainSpecConfigMap: "fennel-chainspec"
+  enabled: true  # Enable the Parity node subchart
+  
+  chainData:
+    volumeSize: "100Gi"         # size of the PVC for chain data
+    storageClass: "fast-ssd"    # StorageClass for performance
+    database: "rocksdb"         # or "paritydb"
+    pruning: 1000               # number of state changes to retain
 
-# Additional Pod-level resource defaults (if needed)
-resources: {}
+  chainSnapshot:
+    enabled: false              # turn on via env override
+    method: ""                  # populated in values-*.yaml if needed
+    url: ""                     # populated in values-*.yaml if needed
+
+  existingSecrets:
+    keys: []                    # list of K8s Secret names for validator keys
+    nodeKey: {}                 # secretName: <your-node-key-secret>
+
+  perNodeServices: {}           # See staging overrides for examples
+
+  serviceMonitor:
+    enabled: false              # turn on via env override
+    interval: ""                # e.g. "30s"
+
+resources: {}                   # Pod CPU/memory requests & limits

@@ -1,0 +1,56 @@
+# Staging-specific overrides
+image:
+  repository: "ghcr.io/corruptedaesthetic/fennel-solonet"
+  tag: "staging-placeholder"  # Will be patched by CI with actual SHA
+
+# Use the staging chain spec key
+chainspec:
+  file: "staging.json"
+
+# Must match the Kustomize-generated ConfigMap name
+# === Production-grade enhancements enabled for staging ===
+node:
+  chainSpecConfigMap: "fennel-chainspec"
+  enabled: true  # Enable the Parity node subchart
+
+  # 1. Persistent storage settings
+  chainData:
+    volumeSize: "100Gi"
+    storageClass: "fast-ssd"
+    database: "rocksdb"
+    pruning: 1000
+
+  # 2. Snapshot restoration from remote
+  chainSnapshot:
+    enabled: true
+    method: "http-filelist"
+    url: "https://your-snapshot-url/list.txt"
+
+  # 3. Secure key injection via existing Secrets
+  existingSecrets:
+    keys:
+      - fennel-node-keys-secret
+    nodeKey:
+      secretName: fennel-node-identity-secret
+
+  # 4. Separate services for API vs P2P
+  perNodeServices:
+    apiService:
+      enabled: true
+      type: ClusterIP
+    relayP2pService:
+      enabled: true
+      type: NodePort
+
+  # 5. Prometheus ServiceMonitor
+  serviceMonitor:
+    enabled: true
+    interval: "30s"
+
+resources:
+  requests:
+    cpu:    500m
+    memory: 512Mi
+  limits:
+    cpu:    1
+    memory: 1Gi

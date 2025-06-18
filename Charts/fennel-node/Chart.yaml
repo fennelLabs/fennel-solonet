@@ -4,6 +4,7 @@ description: Fennel Solochain Validator Node - Staging Environment
 type: application
 version: 0.1.0
 appVersion: "0.1.0"
+icon: https://avatars.githubusercontent.com/u/56845690?s=200&v=4
 
 # Keywords for discoverability
 keywords:
@@ -26,13 +27,4 @@ dependencies:
     repository: "https://paritytech.github.io/helm-charts"
     condition: node.enabled
 
-# Annotations for metadata
-annotations:
-  # Placeholder for staging chainspec - will be populated by CI
-  fennel.network/chainspec-url: "PLACEHOLDER_STAGING_CHAINSPEC_URL"
-  # Placeholder for docker image - will be populated by CI
-  fennel.network/docker-image: "PLACEHOLDER_STAGING_DOCKER_IMAGE"
-  # CI integration metadata
-  fennel.network/ci-build-id: "PLACEHOLDER_CI_BUILD_ID"
-  fennel.network/git-commit: "PLACEHOLDER_GIT_COMMIT_SHA"
-  fennel.network/environment: "staging"
+
