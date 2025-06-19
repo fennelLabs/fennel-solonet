@@ -440,7 +440,7 @@ jobs:
       # Package and publish Helm chart with updated values
       # ------------------------------------------------------------
       - name: Install Helm
-        uses: azure/setup-helm@v3
+        uses: azure/setup-helm@v4
         with:
           version: 'v3.13.0'
 
