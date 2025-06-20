@@ -4,13 +4,14 @@ This Helm chart deploys Fennel blockchain validator nodes on Kubernetes, followi
 
 ## Overview
 
-The chart uses Parity's official node chart as a dependency and provides Fennel-specific configurations for both development and staging environments.
+The chart uses Parity's official node chart (v5.15.0) as a dependency and provides Fennel-specific configurations for both development and staging environments.
 
 ## Prerequisites
 
 - Kubernetes 1.23+
 - Helm 3.13+
 - PV provisioner support in the underlying infrastructure (for persistent storage)
+- A configured StorageClass (e.g., `local-path`, `fast-ssd`)
 
 ## Installation
 
@@ -52,17 +53,26 @@ The chart provides two configuration files:
 | `image.repository` | Docker image repository | `ghcr.io/corruptedaesthetic/fennel-solonet` |
 | `image.tag` | Docker image tag | Set by CI pipeline |
 | `chainspec.file` | Chain specification file | `development.json` |
-| `node.chainSpecConfigMap` | ConfigMap containing chain spec | `fennel-chainspec` |
-| `node.chainData.volumeSize` | Size of persistent volume | `100Gi` |
-| `node.chainData.storageClass` | Storage class for PV | `fast-ssd` |
-| `node.chainSnapshot.enabled` | Enable snapshot restoration | `false` (true in staging) |
+| `node.image.repository` | Node image repository (overrides base image) | Same as `image.repository` |
+| `node.node.chainData.storageClass` | Storage class for chain data PV | `fast-ssd` |
+| `node.node.chainData.volumeSize` | Size of persistent volume | `100Gi` |
+| `node.node.chainSnapshot.enabled` | Enable snapshot restoration | `false` (true in staging) |
 | `node.serviceMonitor.enabled` | Enable Prometheus monitoring | `false` (true in staging) |
+
+### Major Changes in v0.2.0
+
+**Breaking Changes**: This version upgrades from Parity node chart v0.10.0 to v5.15.0, which includes significant structural changes:
+
+1. **Storage Class Configuration**: Now configured at `node.node.chainData.storageClass` instead of root level
+2. **Service Configuration**: Services are now configured under `node.node.perNodeServices`
+3. **Chainspec Mounting**: Custom chainspec is mounted via `extraVolumes` and `extraVolumeMounts`
+4. **Node Keys**: Configured via `node.node.existingNodeKeySecret` and `node.node.keys`
 
 ### Staging Environment Features
 
 The staging configuration enables:
 
-1. **Persistent Storage**: 100Gi volume with fast SSD storage class
+1. **Persistent Storage**: 100Gi volume with local-path storage class
 2. **Snapshot Restoration**: Automatic chain data restoration from snapshots
 3. **Secure Key Management**: Integration with Kubernetes Secrets for validator keys
 4. **Service Segmentation**: Separate services for API and P2P traffic
@@ -83,31 +93,26 @@ The chart is automatically packaged and published by the GitHub Actions workflow
 To test the chart locally:
 
 ```bash
+# Update dependencies
+helm dependency update Charts/fennel-node
+
 # Run the test script
 ./scripts/test-helm-chart.sh
 
 # Or manually:
-helm dependency update
-helm lint .
-helm lint . -f values-staging.yaml
-helm template fennel-test . -f values-staging.yaml
+helm lint Charts/fennel-node
+helm lint Charts/fennel-node -f Charts/fennel-node/values-staging.yaml
+helm template fennel-test Charts/fennel-node -f Charts/fennel-node/values-staging.yaml
 ```
 
-## Upgrading
+## Upgrading from v0.1.x
 
-To upgrade an existing release:
+When upgrading from v0.1.x to v0.2.x, note the following breaking changes:
 
-```bash
-helm upgrade fennel-staging fennel/fennel-node \
-  --namespace fennel-staging \
-  -f values-staging.yaml
-```
-
-## Uninstallation
-
-```bash
-helm uninstall fennel-staging --namespace fennel-staging
-```
+1. Update your custom values files to use the new structure
+2. Storage class is now at `node.node.chainData.storageClass`
+3. Services configuration has moved to `node.node.perNodeServices`
+4. Update any scripts or CI/CD pipelines that reference the old paths
 
 ## Troubleshooting
 
@@ -119,12 +124,19 @@ kubectl describe pod <pod-name> -n fennel-staging
 
 ### View logs
 ```bash
-kubectl logs -n fennel-staging -l app=fennel-node
+kubectl logs -n fennel-staging -l app.kubernetes.io/name=node
 ```
 
 ### Check persistent volume
 ```bash
 kubectl get pvc -n fennel-staging
+kubectl describe pvc -n fennel-staging
+```
+
+### Verify storage class
+```bash
+kubectl get storageclass
+kubectl describe storageclass local-path
 ```
 
 ## License

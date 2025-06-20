@@ -7,50 +7,64 @@ image:
 chainspec:
   file: "staging.json"
 
-# Must match the Kustomize-generated ConfigMap name
-# === Production-grade enhancements enabled for staging ===
+# Parity node chart overrides for staging
 node:
-  chainSpecConfigMap: "fennel-chainspec"
-  enabled: true  # Enable the Parity node subchart
+  # Override image for staging
+  image:
+    repository: "ghcr.io/corruptedaesthetic/fennel-solonet"
+    tag: "staging-placeholder"
+    pullPolicy: Always
 
-  # 1. Persistent storage settings
-  chainData:
-    volumeSize: "100Gi"
-    storageClass: "fast-ssd"
-    database: "rocksdb"
-    pruning: 1000
+  # Node configuration for staging
+  node:
+    # Required: specify the chain name
+    chain: "fennel"  # Adding the required chain field
+    
+    # Use staging chainspec
+    customChainspecPath: "/chainspec/staging.json"
+    
+    # Persistent storage with local-path for staging
+    chainData:
+      storageClass: "local-path"  # Updated for staging environment
+      volumeSize: "100Gi"
+      # Enable snapshot for faster sync (if available)
+      # kubernetesVolumeSnapshot: "fennel-staging-snapshot"
+      pruning: 1000  # Keep last 1000 blocks for staging
 
-  # 2. Snapshot restoration from remote
-  chainSnapshot:
-    enabled: true
-    method: "http-filelist"
-    url: "https://your-snapshot-url/list.txt"
+    # Keystore configuration
+    chainKeystore:
+      storageClass: "local-path"
+      volumeSize: "10Mi"
+      mountInMemory:
+        enabled: false  # Use persistent storage for staging
 
-  # 3. Secure key injection via existing Secrets
-  existingSecrets:
-    keys:
-      - fennel-node-keys-secret
-    nodeKey:
-      secretName: fennel-node-identity-secret
+    # P2P and RPC settings
+    perNodeServices:
+      apiService:
+        enabled: true
+        type: ClusterIP
+      p2pService:
+        enabled: true
+        type: NodePort
+        nodePort: 30333
 
-  # 4. Separate services for API vs P2P
-  perNodeServices:
-    apiService:
-      enabled: true
-      type: ClusterIP
-    relayP2pService:
-      enabled: true
-      type: NodePort
+  # Resources for staging (moderate)
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 1
+      memory: 1Gi
 
-  # 5. Prometheus ServiceMonitor
+  # Service monitor for Prometheus
   serviceMonitor:
     enabled: true
     interval: "30s"
 
-resources:
-  requests:
-    cpu:    500m
-    memory: 512Mi
-  limits:
-    cpu:    1
-    memory: 1Gi
+  # Additional environment variables for staging
+  extraEnvVars:
+    - name: RUST_LOG
+      value: "info"
+    - name: ENVIRONMENT
+      value: "staging"

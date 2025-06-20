@@ -2,8 +2,8 @@ apiVersion: v2
 name: fennel-node
 description: Fennel Solochain Validator Node - Staging Environment
 type: application
-version: 0.1.3
-appVersion: "0.1.3"
+version: 0.2.0
+appVersion: "0.2.0"
 icon: https://avatars.githubusercontent.com/u/56845690?s=200&v=4
 
 # Keywords for discoverability
@@ -23,7 +23,7 @@ maintainers:
 # Dependencies - using Parity's node chart
 dependencies:
   - name: node                  # must match the 'name:' in Parity's Chart.yaml
-    version: "0.10.0"           # Parity chart version
+    version: "5.15.0"           # Latest Parity chart version
     repository: "https://paritytech.github.io/helm-charts"
     condition: node.enabled
 

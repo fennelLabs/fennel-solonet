@@ -1,6 +1,6 @@
 dependencies:
 - name: node
   repository: https://paritytech.github.io/helm-charts
-  version: 0.10.0
-digest: sha256:d44918686670f77508598ca96cdcaab0b81fece6b5a34976b4037a0193d93bd3
-generated: "2025-06-15T22:41:58.570552427-04:00"
+  version: 5.15.0
+digest: sha256:f73b9f3c1e748ec397f641c44b77b61d45556efaf46a49c876047c3dfa0bc58c
+generated: "2025-06-19T21:20:57.039297236-04:00"

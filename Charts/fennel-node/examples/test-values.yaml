@@ -1,0 +1,67 @@
+# Example values for testing fennel-node chart locally
+# This file demonstrates how to configure the chart for local development
+
+# Override image settings for local testing
+image:
+  repository: "ghcr.io/corruptedaesthetic/fennel-solonet"
+  tag: "latest"
+
+# Use development chainspec
+chainspec:
+  file: "development.json"
+
+# Configure the Parity node subchart
+node:
+  # Override image
+  image:
+    repository: "ghcr.io/corruptedaesthetic/fennel-solonet"
+    tag: "latest"
+    pullPolicy: IfNotPresent
+
+  # Node configuration
+  node:
+    # For local testing, you might want just 1 replica
+    replicas: 1
+    
+    # Use local storage class (adjust based on your cluster)
+    chainData:
+      storageClass: "standard"  # or "local-path" for k3s/kind
+      volumeSize: "10Gi"      # Smaller size for testing
+    
+    chainKeystore:
+      storageClass: "standard"
+      volumeSize: "10Mi"
+    
+    # Disable snapshots for local testing
+    chainSnapshot:
+      enabled: false
+    
+    # Simple service configuration for local access
+    perNodeServices:
+      apiService:
+        enabled: true
+        type: ClusterIP
+      p2pService:
+        enabled: true
+        type: ClusterIP  # Use ClusterIP for local testing
+    
+    # Enable prometheus metrics for debugging
+    prometheus:
+      enabled: true
+      port: 9615
+  
+  # Minimal resources for local testing
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  
+  # Debug logging
+  extraEnvVars:
+    - name: RUST_LOG
+      value: "debug"
+    - name: RUST_BACKTRACE
+      value: "1" 

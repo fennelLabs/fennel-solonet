@@ -9,29 +9,89 @@ chainspec:
 
 # ConfigMap name holding the chain spec (overwritten in CI)
 # Production-grade defaults (can all be overridden in env-specific files)
+
+# Storage class for the Parity node subchart
+storageClass: "fast-ssd"    # This gets passed to the Parity node chart
+
+# Parity node chart configuration
 node:
-  chainSpecConfigMap: "fennel-chainspec"
   enabled: true  # Enable the Parity node subchart
   
-  chainData:
-    volumeSize: "100Gi"         # size of the PVC for chain data
-    storageClass: "fast-ssd"    # StorageClass for performance
-    database: "rocksdb"         # or "paritydb"
-    pruning: 1000               # number of state changes to retain
-
-  chainSnapshot:
-    enabled: false              # turn on via env override
-    method: ""                  # populated in values-*.yaml if needed
-    url: ""                     # populated in values-*.yaml if needed
-
-  existingSecrets:
-    keys: []                    # list of K8s Secret names for validator keys
-    nodeKey: {}                 # secretName: <your-node-key-secret>
-
-  perNodeServices: {}           # See staging overrides for examples
-
+  # Override the image settings for the node
+  image:
+    repository: "ghcr.io/corruptedaesthetic/fennel-solonet"
+    tag: "dev-placeholder"
+    pullPolicy: IfNotPresent
+  
+  # Node configuration
+  node:
+    chain: ""  # Will be set via custom chainspec
+    command: "fennel-node"  # The binary name
+    replicas: 1
+    role: "authority"  # validator node
+    
+    # Use custom chainspec from ConfigMap
+    customChainspec: true
+    customChainspecPath: "/chainspec/{{ .Values.chainspec.file }}"
+    
+    # Persistent storage for chain data
+    chainData:
+      storageClass: "fast-ssd"    # StorageClass for performance
+      volumeSize: "100Gi"         # size of the PVC for chain data
+      chainPath: ""               # use default path
+      
+    # Key storage
+    chainKeystore:
+      storageClass: "fast-ssd"
+      volumeSize: "10Mi"
+      
+    # Database configuration
+    database: "rocksdb"           # or "paritydb"
+    pruning: 1000                 # number of state changes to retain
+    
+    # Snapshot restoration settings
+    chainSnapshot:
+      enabled: false
+      url: ""
+      
+    # Existing secrets for node keys
+    existingNodeKeySecret:
+      enabled: false
+      secretName: ""
+      
+    # Service configuration
+    perNodeServices:
+      apiService:
+        enabled: true
+        type: ClusterIP
+      p2pService:
+        enabled: true
+        type: NodePort
+        
+    # Prometheus metrics
+    prometheus:
+      enabled: false
+      port: 9615
+  
+  # Additional volumes for chainspec
+  extraVolumes:
+    - name: chainspec
+      configMap:
+        name: "fennel-chainspec"
+        
+  # Mount the chainspec
+  extraVolumeMounts:
+    - name: chainspec
+      mountPath: /chainspec
+      readOnly: true
+  
+  # Service monitor for Prometheus
   serviceMonitor:
-    enabled: false              # turn on via env override
-    interval: ""                # e.g. "30s"
-
-resources: {}                   # Pod CPU/memory requests & limits
+    enabled: false
+    interval: "30s"
+  
+  # Resource limits
+  resources: {}
+  
+  # Additional environment variables
+  extraEnvVars: []
