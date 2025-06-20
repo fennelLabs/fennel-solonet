@@ -1,70 +1,173 @@
-# Staging-specific overrides
+# Staging environment values for fennel-node chart
+# These values override the base values.yaml for staging deployments
+
 image:
   repository: "ghcr.io/corruptedaesthetic/fennel-solonet"
-  tag: "staging-placeholder"  # Will be patched by CI with actual SHA
+  tag: "dev-placeholder"  # Will be updated by CI
+  pullPolicy: Always
 
-# Use the staging chain spec key
 chainspec:
-  file: "staging.json"
+  file: "staging-chainspec.json"
 
-# Parity node chart overrides for staging
 node:
-  # Override image for staging
+  enabled: true
+  
   image:
     repository: "ghcr.io/corruptedaesthetic/fennel-solonet"
-    tag: "staging-placeholder"
+    tag: "dev-placeholder"  # Will be updated by CI
     pullPolicy: Always
-
-  # Node configuration for staging
+  
   node:
-    # Required: specify the chain name
-    chain: "fennel"  # Adding the required chain field
+    chain: "fennel"
+    command: "fennel-node"
+    replicas: 1
+    role: "authority"
     
-    # Use staging chainspec
-    customChainspecPath: "/chainspec/staging.json"
+    customChainspec: true
+    customChainspecPath: "/chainspec/staging-chainspec.json"
     
-    # Persistent storage with local-path for staging
     chainData:
-      storageClass: "local-path"  # Updated for staging environment
+      storageClass: "local-path"  # Adjust for your Azure cluster
       volumeSize: "100Gi"
-      # Enable snapshot for faster sync (if available)
-      # kubernetesVolumeSnapshot: "fennel-staging-snapshot"
       pruning: 1000  # Keep last 1000 blocks for staging
-
-    # Keystore configuration
+      
     chainKeystore:
       storageClass: "local-path"
       volumeSize: "10Mi"
       mountInMemory:
         enabled: false  # Use persistent storage for staging
-
-    # P2P and RPC settings
+        
+    # Staging-specific flags
+    flags:
+      - "--chain=/chainspec/staging-chainspec.json"
+      - "--prometheus-external"
+      - "--rpc-external"
+      - "--ws-external"
+      - "--rpc-cors=all"
+      - "--rpc-methods=unsafe"  # Safe for staging
+      - "--log=info,runtime::system=debug"
+      - "--enable-offchain-indexing=true"
+      - "--name=fennel-staging-validator"
+      - "--validator"
+      - "--force-authoring"
+      
     perNodeServices:
       apiService:
         enabled: true
         type: ClusterIP
+        annotations:
+          service.beta.kubernetes.io/azure-load-balancer-internal: "true"
       p2pService:
         enabled: true
         type: NodePort
         nodePort: 30333
+        
+    prometheus:
+      enabled: true
+      port: 9615
+      
+    # Use existing secrets for keys
+    existingSecrets:
+      keys:
+        - "validator-keys"
+      nodeKey:
+        secretName: "node-key"
+        secretKey: "node.key"
 
-  # Resources for staging (moderate)
+  # Staging resource allocation
   resources:
     requests:
       cpu: 500m
-      memory: 512Mi
-    limits:
-      cpu: 1
       memory: 1Gi
+    limits:
+      cpu: 2
+      memory: 4Gi
 
-  # Service monitor for Prometheus
+  # Service monitor
   serviceMonitor:
     enabled: true
     interval: "30s"
-
-  # Additional environment variables for staging
+    scrapeTimeout: "10s"
+    
+  # Pod security context
+  podSecurityContext:
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  
+  # Additional volumes for chainspec
+  extraVolumes:
+    - name: chainspec
+      configMap:
+        name: "fennel-chainspec"
+        
+  extraVolumeMounts:
+    - name: chainspec
+      mountPath: /chainspec
+      readOnly: true
+  
+  # Environment variables
   extraEnvVars:
     - name: RUST_LOG
-      value: "info"
-    - name: ENVIRONMENT
-      value: "staging"
+      value: "info,sc_basic_authorship=trace"
+    - name: RUST_BACKTRACE
+      value: "1"
+    - name: NODE_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: spec.nodeName
+    - name: POD_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.name
+    - name: POD_NAMESPACE
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.namespace
+
+  # Pod annotations
+  podAnnotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9615"
+    prometheus.io/path: "/metrics"
+    environment: "staging"
+    
+  # Additional labels
+  extraLabels:
+    environment: staging
+    app.kubernetes.io/version: "0.2.0"
+    app.kubernetes.io/component: "blockchain-node"
+    
+  # Health checks
+  startupProbe:
+    enabled: true
+    httpGet:
+      path: /health
+      port: 9944
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 30
+  
+  livenessProbe:
+    enabled: true
+    httpGet:
+      path: /health
+      port: 9944
+    initialDelaySeconds: 60
+    periodSeconds: 30
+    timeoutSeconds: 10
+    failureThreshold: 3
+  
+  readinessProbe:
+    enabled: true
+    httpGet:
+      path: /health
+      port: 9944
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
