@@ -40,9 +40,7 @@ node:
     # Staging-specific flags
     flags:
       - "--chain=/chainspec/staging-chainspec.json"
-      - "--prometheus-external"
       - "--rpc-external"
-      - "--ws-external"
       - "--rpc-cors=all"
       - "--rpc-methods=unsafe"  # Safe for staging
       - "--log=info,runtime::system=debug"

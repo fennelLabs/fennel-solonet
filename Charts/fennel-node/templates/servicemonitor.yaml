@@ -1,0 +1,18 @@
+{{- if and .Values.node.serviceMonitor.enabled .Values.node.prometheus.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "fennel-node.fullname" . }}
+  labels:
+    {{- include "fennel-node.labels" . | nindent 4 }}
+spec:
+  endpoints:
+  - port: prometheus
+    interval: {{ .Values.node.serviceMonitor.interval }}
+    scrapeTimeout: {{ .Values.node.serviceMonitor.scrapeTimeout }}
+    path: /metrics
+  selector:
+    matchLabels:
+      {{- include "fennel-node.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: api
+{{- end }} 

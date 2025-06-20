@@ -1,0 +1,154 @@
+{{- $fullname := include "fennel-node.fullname" . }}
+{{- $selectorLabels := include "fennel-node.selectorLabels" . }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $fullname }}
+  labels:
+    {{- include "fennel-node.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ $fullname }}
+  replicas: {{ .Values.node.replicas }}
+  selector:
+    matchLabels:
+      {{- $selectorLabels | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- $selectorLabels | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "fennel-node.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+        {{- if .Values.node.customChainspecUrl }}
+        # OFFICIAL PARITY PATTERN: Download chainspec init container
+        - name: download-chainspec
+          image: {{ .Values.initContainers.downloadChainspec.image.repository }}:{{ .Values.initContainers.downloadChainspec.image.tag }}
+          command: [ "/bin/sh" ]
+          args:
+            - -c
+            - |
+              set -eu -o pipefail {{ if .Values.initContainers.downloadChainspec.debug }}-x{{ end }}
+              apk add --no-cache wget
+              {{- if not .Values.node.forceDownloadChainspec }}
+              if [ ! -f {{ .Values.node.customChainspecPath }} ]; then
+              {{- end }}
+                echo "Downloading chainspec from {{ .Values.node.customChainspecUrl }}"
+                wget -O {{ .Values.node.customChainspecPath }} {{ .Values.node.customChainspecUrl }}
+                echo "Chainspec downloaded successfully"
+              {{- if not .Values.node.forceDownloadChainspec }}
+              else
+                echo "Chainspec already exists, skipping download"
+              fi
+              {{- end }}
+          resources:
+            {{- toYaml .Values.initContainers.downloadChainspec.resources | nindent 12 }}
+          volumeMounts:
+            - mountPath: /chain-data
+              name: chain-data
+          securityContext:
+            runAsUser: 0
+        {{- end }}
+        {{- with .Values.extraInitContainers }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      containers:
+        - name: {{ include "fennel-node.name" . }}
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: [ "/bin/sh" ]
+          args:
+            - -c
+            - |
+              set -eu{{ if .Values.image.debug }}x{{ end }}
+              exec {{ .Values.node.command }} \
+                --name=${POD_NAME} \
+                --base-path=/chain-data \
+                --keystore-path=/keystore \
+                --chain={{ if or .Values.node.customChainspecUrl .Values.node.customChainspec }}{{ .Values.node.customChainspecPath }}{{ else }}${CHAIN}{{ end }} \
+                {{- if or (eq .Values.node.role "authority") (eq .Values.node.role "validator") }}
+                --validator \
+                {{- end }}
+                {{- if .Values.node.chainData.database }}
+                --database={{ .Values.node.chainData.database }} \
+                {{- end }}
+                {{- if and ( not (kindIs "bool" .Values.node.chainData.pruning ) ) (ge ( int .Values.node.chainData.pruning ) 1) }}
+                --state-pruning={{ .Values.node.chainData.pruning }} \
+                {{- else if and ( not (kindIs "bool" .Values.node.chainData.pruning ) ) ( not ( kindIs "invalid" .Values.node.chainData.pruning ) ) ( eq 0 ( int .Values.node.chainData.pruning ) ) }}
+                --state-pruning=archive \
+                {{- end }}
+                {{- if eq .Values.node.role "collator" }}
+                --collator \
+                {{- end }}
+                {{- if eq .Values.node.role "light" }}
+                --light \
+                {{- end }}
+                {{- if .Values.node.prometheus.enabled }}
+                --prometheus-external \
+                --prometheus-port {{ .Values.node.prometheus.port }} \
+                {{- end }}
+                --unsafe-rpc-external \
+                --rpc-port={{ .Values.node.perNodeServices.apiService.rpcPort | int }} \
+                --rpc-cors=all \
+                --listen-addr=/ip4/0.0.0.0/tcp/{{ .Values.node.perNodeServices.p2pService.port }} \
+                {{- range .Values.node.flags }}
+                {{ . }} \
+                {{- end }}
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: CHAIN
+              value: {{ .Values.node.chain | quote }}
+            {{- with .Values.node.extraEnvVars }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          ports:
+            - name: rpc
+              containerPort: {{ .Values.node.perNodeServices.apiService.rpcPort }}
+              protocol: TCP
+            - name: p2p
+              containerPort: {{ .Values.node.perNodeServices.p2pService.port }}
+              protocol: TCP
+            {{- if .Values.node.prometheus.enabled }}
+            - name: prometheus
+              containerPort: {{ .Values.node.prometheus.port }}
+              protocol: TCP
+            {{- end }}
+          volumeMounts:
+            - name: chain-data
+              mountPath: /chain-data
+            - name: chain-keystore
+              mountPath: /keystore
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.node.resources | nindent 12 }}
+      volumes:
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+  volumeClaimTemplates:
+    - metadata:
+        name: chain-data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        {{- if .Values.node.chainData.storageClass }}
+        storageClassName: {{ .Values.node.chainData.storageClass }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.node.chainData.volumeSize }}
+    - metadata:
+        name: chain-keystore
+      spec:
+        accessModes: {{ .Values.node.chainKeystore.accessModes }}
+        {{- if .Values.node.chainKeystore.storageClass }}
+        storageClassName: {{ .Values.node.chainKeystore.storageClass }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.node.chainKeystore.volumeSize }} 
