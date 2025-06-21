@@ -2,7 +2,7 @@ apiVersion: v2
 name: fennel-node
 description: A Helm chart for deploying Fennel Substrate nodes following official Parity patterns
 type: application
-version: 0.3.0
+version: 0.3.1
 appVersion: "0.2.0"
 home: "https://github.com/corruptedaesthetic/fennel-solonet"
 sources:

@@ -12,6 +12,9 @@ initContainers:
       tag: latest
     resources: {}
     debug: false
+  persistGeneratedNodeKey:
+    resources: {}
+    debug: false
 
 # ConfigMap name holding the chain spec (overwritten in CI)
 # Production-grade defaults (can all be overridden in env-specific files)
@@ -29,6 +32,8 @@ node:
   replicas: 1
   # Type of the node. One of: full, authority, validator, collator, light
   role: authority
+  # Automatically generate and persist node key
+  persistGeneratedNodeKey: false
   
   # OFFICIAL PARITY PATTERN: Use the file defined in `node.customChainspecPath` as the chainspec. 
   # Ensure that the file is either mounted or generated with an init container.
