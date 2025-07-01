@@ -10,3 +10,17 @@
 .envrc
 .direnv
 chain/
+
+# SECURITY: Never commit private keys or secrets
+# Bootnode private keys
+bootnodes/keys/
+*.key
+**/keys/
+# Temporary key files
+*_new.key
+*_peer_id_new.txt
+# Other sensitive files
+*.pem
+*.p12
+*.pfx
+node_modules/
