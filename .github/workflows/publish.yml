@@ -49,14 +49,19 @@ jobs:
           set -euo pipefail
           echo "🔐 Deriving bootnode peer IDs from GitHub secrets..."
           
-          # First, install subkey as a more reliable alternative
-          echo "📥 Installing subkey for key operations..."
-          cargo install --force subkey --git https://github.com/paritytech/polkadot-sdk --tag stable2503 --quiet
+          # Install polkadot binary from official releases (most reliable)
+          echo "📥 Installing polkadot binary..."
+          POLKADOT_VERSION="v1.9.0"
+          wget -q "https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-${POLKADOT_VERSION}/polkadot" -O polkadot
+          chmod +x polkadot
           
-          # Helper: derive peer-id from a key file using subkey (more reliable)
-          # Parse only last line (PeerID) to avoid logging sensitive data
+          # Verify installation
+          ./polkadot --version
+          
+          # Helper: derive peer-id from a key file using polkadot
+          # Parse only last line (PeerID) to avoid logging sensitive data  
           derive_peer () {
-            subkey inspect-node-key --file "$1" 2>/dev/null | tail -1
+            ./polkadot key inspect-node-key --file "$1" 2>/dev/null | tail -1
           }
           
           # Decode secrets to tmpfs (runner's /tmp is already tmpfs), derive IDs
