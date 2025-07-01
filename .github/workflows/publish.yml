@@ -49,11 +49,14 @@ jobs:
           set -euo pipefail
           echo "🔐 Deriving bootnode peer IDs from GitHub secrets..."
           
-          # Helper: derive peer-id from a key file using official Parity container
+          # First, install subkey as a more reliable alternative
+          echo "📥 Installing subkey for key operations..."
+          cargo install --force subkey --git https://github.com/paritytech/polkadot-sdk --tag stable2503 --quiet
+          
+          # Helper: derive peer-id from a key file using subkey (more reliable)
           # Parse only last line (PeerID) to avoid logging sensitive data
           derive_peer () {
-            docker run --rm -v "$1:/tmp/key:ro" paritytech/polkadot:v1.9.0 \
-              polkadot key inspect-node-key --file /tmp/key 2>/dev/null | tail -1
+            subkey inspect-node-key --file "$1" 2>/dev/null | tail -1
           }
           
           # Decode secrets to tmpfs (runner's /tmp is already tmpfs), derive IDs
