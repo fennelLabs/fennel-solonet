@@ -2,23 +2,13 @@ apiVersion: v2
 name: fennel-node
 description: A Helm chart for deploying Fennel Substrate nodes following official Parity patterns
 type: application
-version: 0.3.1
-appVersion: "0.2.0"
+version: 0.4.0
+appVersion: "0.4.0"
 home: "https://github.com/corruptedaesthetic/fennel-solonet"
 sources:
   - "https://github.com/corruptedaesthetic/fennel-solonet"
 maintainers:
   - name: corruptedaesthetic
-    email: ""
-keywords:
-  - blockchain
-  - substrate
-  - polkadot
-  - validator
-  - solochain
-  - fennel
-
-# Keywords for discoverability
 keywords:
   - blockchain
   - substrate
