@@ -88,7 +88,7 @@ mod block_times {
 	/// slot_duration()`.
 ///
 /// Change this to adjust the block time.
-	pub const MILLI_SECS_PER_BLOCK: u64 = 6000;
+	pub const MILLI_SECS_PER_BLOCK: u64 = 12000; // 12 seconds - typical for Substrate chains
 
 // NOTE: Currently it is not possible to change the slot duration after the chain has started.
 	// Attempting to do so will brick block production.
@@ -195,7 +195,7 @@ impl Convert<AccountId, Option<AccountId>> for ConvertAccountIdToSessionIndex {
 }
 
 parameter_types! {
-    pub const Period: u32 = 2; // 2 blocks = ~12 seconds per session - extremely short for testing
+    pub const Period: u32 = 600; // 600 blocks = ~2 hours per session (600 * 12 seconds)
     pub const Offset: u32 = 0;
     pub const MinAuthorities: u32 = 2;
 }
