@@ -61,6 +61,13 @@ fn add_validators_should_work() {
 #[test]
 fn cannot_add_duplicate_validator() {
     new_test_ext().execute_with(|| {
+        // Set session keys for validator 4 before registering
+        assert_ok!(Session::set_keys(
+            RuntimeOrigin::signed(ValidatorId(4).into()),
+            UintAuthorityId(4),
+            Vec::new(),
+        ));
+        
         assert_ok!(ValidatorManager::register_validators(
             RuntimeOrigin::root(),
             validator_keys(&[4])
@@ -164,5 +171,39 @@ fn unauthorized_origin_cannot_remove_validators() {
             ),
             frame_support::error::BadOrigin
         );
+    });
+}
+
+#[test]
+fn cannot_add_validator_without_session_keys() {
+    new_test_ext().execute_with(|| {
+        System::set_block_number(1);
+        Session::on_initialize(1);
+        
+        // Ensure account 5 exists by incrementing its consumer count
+        let _ = System::inc_consumers(&ValidatorId(5));
+        
+        // Try to register validator 5 without setting session keys
+        // This should fail with NoKeysRegistered error
+        assert_noop!(
+            ValidatorManager::register_validators(
+                RuntimeOrigin::root(),
+                validator_keys(&[5])
+            ),
+            Error::<Test>::NoKeysRegistered
+        );
+        
+        // Now set session keys for validator 5
+        assert_ok!(Session::set_keys(
+            RuntimeOrigin::signed(ValidatorId(5).into()),
+            UintAuthorityId(5),
+            Vec::new(),
+        ));
+        
+        // Now registration should succeed
+        assert_ok!(ValidatorManager::register_validators(
+            RuntimeOrigin::root(),
+            validator_keys(&[5])
+        ));
     });
 }

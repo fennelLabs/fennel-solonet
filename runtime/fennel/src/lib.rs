@@ -195,7 +195,7 @@ impl Convert<AccountId, Option<AccountId>> for ConvertAccountIdToSessionIndex {
 }
 
 parameter_types! {
-    pub const Period: u32 = 600; // 600 blocks = ~2 hours per session (600 * 12 seconds)
+    pub const Period: u32 = 25; // 25 blocks = 5 minutes per session (25 * 12 seconds = 300 seconds)
     pub const Offset: u32 = 0;
     pub const MinAuthorities: u32 = 2;
 }

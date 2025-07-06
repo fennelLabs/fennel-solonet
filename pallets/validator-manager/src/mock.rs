@@ -159,7 +159,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
     .assimilate_storage(&mut t)
     .unwrap();
     balances::GenesisConfig::<Test> {
-        balances: vec![(ValidatorId(1), 1000), (ValidatorId(2), 1000), (ValidatorId(3), 1000), (ValidatorId(4), 1000)],
+        balances: vec![(ValidatorId(1), 1000), (ValidatorId(2), 1000), (ValidatorId(3), 1000), (ValidatorId(4), 1000), (ValidatorId(5), 1000)],
         ..Default::default()
     }
     .assimilate_storage(&mut t)

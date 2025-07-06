@@ -85,6 +85,8 @@ pub mod pallet {
         NotValidator,
         /// Removing this validator would put the validator count below the minimum.
         TooFewValidators,
+        /// Validator has no session keys registered.
+        NoKeysRegistered,
     }
 
     /// Validators that should be removed.
@@ -127,6 +129,9 @@ pub mod pallet {
         /// Add new validators to the set.
         ///
         /// The new validators will be active from current session + 2.
+        /// 
+        /// # Requirements
+        /// - Validators must have session keys registered via `session.setKeys()` before calling this
         #[pallet::call_index(0)]
         #[pallet::weight(<T as pallet::Config>::WeightInfo::register_validators(validators.len() as u32))]
         pub fn register_validators(
@@ -142,6 +147,14 @@ pub mod pallet {
                 ensure!(
                     !current_validators_to_add.contains(&validator),
                     Error::<T>::ValidatorAlreadyAdded
+                );
+
+                // CRITICAL: Check if validator has session keys registered
+                // This prevents adding validators without keys which causes GRANDPA to halt
+                let keys = <pallet_session::NextKeys<T>>::get(&validator);
+                ensure!(
+                    keys.is_some(),
+                    Error::<T>::NoKeysRegistered
                 );
 
                 // Add to the queue

@@ -4,6 +4,9 @@
 
 use super::*;
 use frame_benchmarking::v2::*;
+use frame_benchmarking::account;
+use codec::Decode;
+use sp_runtime::traits::TrailingZeroInput;
 
 fn validator_id<T: Config>(seed: u32) -> T::ValidatorId {
     let account: T::AccountId = account("validator", seed, 0);
@@ -19,6 +22,17 @@ mod benchmarks {
     fn register_validators<T: Config>(c: Linear<1, 10>) {
         ValidatorsToAdd::<T>::kill(); // Clear storage before running
         let validators: Vec<T::ValidatorId> = (0..c).map(|i| validator_id::<T>(i as u32)).collect();
+        
+        // Set session keys for all validators before registering
+        // This is required now that we check for keys existence
+        for (i, validator) in validators.iter().enumerate() {
+            let account: T::AccountId = account("validator", i as u32, 0);
+            // Create dummy session keys for benchmarking
+            let keys = T::Keys::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes())
+                .expect("Failed to decode zero keys");
+            <pallet_session::NextKeys<T>>::insert(&validator, &keys);
+        }
+        
         #[extrinsic_call]
         Pallet::<T>::register_validators(RawOrigin::Root, validators.clone());
         assert_eq!(ValidatorsToAdd::<T>::get().len(), c as usize);
