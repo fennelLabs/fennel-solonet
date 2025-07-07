@@ -74,7 +74,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	//   `spec_version`, and `authoring_version` are the same between Wasm and native.
 	// This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
 	//   the compatible custom types.
-	spec_version: 100,
+	spec_version: 101,
 	impl_version: 1,
 	apis: apis::RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -195,7 +195,7 @@ impl Convert<AccountId, Option<AccountId>> for ConvertAccountIdToSessionIndex {
 }
 
 parameter_types! {
-    pub const Period: u32 = 25; // 25 blocks = 5 minutes per session (25 * 12 seconds = 300 seconds)
+    pub const Period: u32 = 50; // 50 blocks = 10 minutes per session (50 * 12 seconds = 600 seconds)
     pub const Offset: u32 = 0;
     pub const MinAuthorities: u32 = 2;
 }
@@ -214,9 +214,8 @@ impl pallet_session::Config for Runtime {
     type Keys              = SessionKeys;
     type NextSessionRotation = PeriodicSessions<Period, Offset>;
     type WeightInfo        = pallet_session::weights::SubstrateWeight<Runtime>;
-    // Use the unit type () as DisablingStrategy, which is a valid implementation
-    // that does nothing (no disabling)
-    type DisablingStrategy = ();
+    // Enable automatic disabling of unresponsive validators (up to 1/3 of validators can be disabled)
+    type DisablingStrategy = pallet_session::disabling::UpToLimitDisablingStrategy<3>;
 }
 
 // Configure the validator manager pallet
@@ -224,6 +223,8 @@ impl pallet_validator_manager::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type PrivilegedOrigin = frame_system::EnsureRoot<AccountId>;
     type MinAuthorities = MinAuthorities;
+    type SessionPeriod = Period;
+    type SessionOffset = Offset;
     type WeightInfo = pallet_validator_manager::weights::SubstrateWeight<Runtime>;
     type ValidatorOf = ValidatorOf<Runtime>;
 }

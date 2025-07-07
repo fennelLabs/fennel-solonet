@@ -599,7 +599,7 @@ jobs:
           cp "${GITHUB_WORKSPACE}/release"/*.tgz charts/
           
           # Generate Helm repository index
-          helm repo index charts --url "https://corruptedaesthetic.github.io/fennel-solonet/charts"
+          helm repo index charts --url "https://corruptedaesthetic.github.io/fennel-solonet"
           
           # Create a simple index.html for the repository
           cat > index.html << 'EOF'
