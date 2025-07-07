@@ -136,6 +136,8 @@ impl pallet_validator_manager::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type PrivilegedOrigin = frame_system::EnsureRoot<AccountId>;
     type MinAuthorities = MinAuthorities;
+    type SessionPeriod = ConstU32<20>; // 20 blocks per session for testing
+    type SessionOffset = ConstU32<0>;  // No offset for testing
     type ValidatorOf = crate::ValidatorOf<Test>;
     type WeightInfo = ();
 }
