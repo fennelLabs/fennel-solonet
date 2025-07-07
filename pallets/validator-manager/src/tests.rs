@@ -27,28 +27,36 @@ fn add_validators_should_work() {
         System::set_block_number(1);
         Session::on_initialize(1);
         assert_eq!(Session::validators(), validator_keys(&[1, 2, 3]));
+        
         // Ensure account 4 exists
         let _ = System::inc_consumers(&ValidatorId(4));
         System::account_nonce(ValidatorId(4));
+        
         // Set session keys for validator 4 before registering
         assert_ok!(Session::set_keys(
             RuntimeOrigin::signed(ValidatorId(4).into()),
             UintAuthorityId(4),
             Vec::new(),
         ));
-        // Register a new validator (privileged origin)
+        
+        // Process next session to activate the keys
+        System::set_block_number(2);
+        Session::on_initialize(2);
+        
+        // Now register the validator (keys should be available)
         assert_ok!(ValidatorManager::register_validators(
             RuntimeOrigin::root(),
             validator_keys(&[4])
         ));
         // Check that the validator is in the queue
         assert_eq!(ValidatorManager::validators_to_add(), validator_keys(&[4]));
-        // Trigger five more sessions to enact the change (two full rotations after registration)
-        Session::on_initialize(2);
+        
+        // Trigger more sessions to enact the change
+        System::set_block_number(3);
         Session::on_initialize(3);
+        System::set_block_number(4);
         Session::on_initialize(4);
-        Session::on_initialize(5);
-        Session::on_initialize(6);
+        
         // Validators should now include the new one
         assert_eq!(Session::validators(), validator_keys(&[1, 2, 3, 4]));
         // Check the event was emitted
@@ -67,6 +75,10 @@ fn cannot_add_duplicate_validator() {
             UintAuthorityId(4),
             Vec::new(),
         ));
+        
+        // Process a session to activate the keys
+        System::set_block_number(1);
+        Session::on_initialize(1);
         
         assert_ok!(ValidatorManager::register_validators(
             RuntimeOrigin::root(),
@@ -199,6 +211,10 @@ fn cannot_add_validator_without_session_keys() {
             UintAuthorityId(5),
             Vec::new(),
         ));
+        
+        // Process a session to activate the keys
+        System::set_block_number(2);
+        Session::on_initialize(2);
         
         // Now registration should succeed
         assert_ok!(ValidatorManager::register_validators(
