@@ -20,8 +20,8 @@ repository.
 Depending on your operating system and Rust version, there might be additional
 packages required to compile this template. Check the
 [Install](https://docs.substrate.io/install/) instructions for your platform for
-the most common dependencies. Alternatively, you can use one of the [alternative
-installation](#alternatives-installations) options.
+the most common dependencies. Alternatively, you can use Docker as described in the
+[Alternative Installation](#alternative-installation) section.
 
 ### Build
 
@@ -204,17 +204,7 @@ A FRAME pallet is comprised of a number of blockchain primitives, including:
 Each pallet has its own `Config` trait which serves as a configuration interface
 to generically define the types and parameters it depends on.
 
-## Alternatives Installations
-
-Instead of installing dependencies and building this source directly, consider
-the following alternatives.
-
-### Nix
-
-Install [nix](https://nixos.org/) and
-[nix-direnv](https://github.com/nix-community/nix-direnv) for a fully
-plug-and-play experience for setting up the development environment. To get all
-the correct dependencies, activate direnv `direnv allow`.
+## Alternative Installation
 
 ### Docker
 

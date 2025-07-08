@@ -7,7 +7,7 @@
 .DS_Store
 
 # direnv files
-.envrc
+.envrc.local
 .direnv
 
 # Blockchain data directories
