@@ -9,7 +9,48 @@
 # direnv files
 .envrc
 .direnv
+
+# Blockchain data directories
 chain/
+data/
+db/
+chains/
+**/chains/
+**/db/
+
+# Local node data
+alice/
+bob/
+charlie/
+dave/
+eve/
+ferdie/
+
+# Substrate/Polkadot specific
+*.wasm
+*.compact.wasm
+srtool-digest.json
+runtime/*/target/
+
+# Chain specifications (if generated locally)
+# Note: Keep committed chainspecs in chainspecs/ directory
+*.json.backup
+*-raw.json.tmp
+*-local.json
+
+# Development and testing
+.local/
+tmp/
+temp/
+logs/
+*.log
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
 
 # SECURITY: Never commit private keys or secrets
 # Bootnode private keys
@@ -19,8 +60,25 @@ bootnodes/keys/
 # Temporary key files
 *_new.key
 *_peer_id_new.txt
+# Session keys and validator keys
+session-keys/
+validator-keys/
+keystore/
+**/keystore/
 # Other sensitive files
 *.pem
 *.p12
 *.pfx
+
+# Dependencies
 node_modules/
+vendor/
+
+# Build artifacts
+dist/
+build/
+release/
+
+# Platform specific
+Thumbs.db
+ehthumbs.db
