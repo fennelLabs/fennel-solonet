@@ -52,15 +52,38 @@ jobs:
             git fetch origin "refs/tags/$TAG:refs/tags/$TAG"
           fi
           
-          # Show tag information for debugging
-          echo "📋 Tag information:"
-          git show --no-patch --format="  Type: %s%n  Author: %an <%ae>%n  Date: %ai" "$TAG" || echo "Could not show tag info"
+          # Verify tag object type and show debugging info
+          echo "🔍 Debugging tag object..."
+          echo "  Tag type: $(git cat-file -t "$TAG" 2>/dev/null || echo 'unknown')"
+          echo "  Tag exists in local refs: $(git tag -l | grep "^$TAG$" || echo 'NOT FOUND')"
+          
+          # Show tag information for debugging (tag object, not commit)
+          echo "📋 Tag object information:"
+          if git cat-file -t "$TAG" | grep -q "tag"; then
+            git cat-file tag "$TAG" | head -10
+          else
+            echo "⚠️  Not a tag object, showing commit info:"
+            git show --no-patch --format="  Commit: %H%n  Author: %an <%ae>%n  Date: %ai%n  Subject: %s" "$TAG"
+          fi
           
           # Verify the tag signature (will fail if tag is unsigned or signature is bad)
-          if git verify-tag "$TAG"; then
+          echo "🔐 Attempting tag signature verification..."
+          if git verify-tag "$TAG" 2>&1; then
             echo "✅ Tag signature verified successfully"
           else
             echo "❌ Tag signature verification failed"
+            echo "🔍 Attempting alternative verification methods..."
+            
+            # Try explicit tag object verification
+            if git cat-file -t "$TAG" | grep -q "tag"; then
+              echo "  Tag object exists, trying direct verification..."
+              git verify-tag "$TAG" --verbose 2>&1 || true
+            fi
+            
+            # Show what refs we have
+            echo "  Available tag refs:"
+            git for-each-ref refs/tags/ --format="%(refname:short) -> %(objecttype)" | grep "$TAG" || echo "    No matching tag refs found"
+            
             exit 1
           fi
 
