@@ -54,35 +54,77 @@ jobs:
           
           # Verify tag object type and show debugging info
           echo "🔍 Debugging tag object..."
-          echo "  Tag type: $(git cat-file -t "$TAG" 2>/dev/null || echo 'unknown')"
+          
+          # Check different ways to reference the tag
+          echo "  Tag type (direct): $(git cat-file -t "$TAG" 2>/dev/null || echo 'unknown')"
+          echo "  Tag type (refs/tags): $(git cat-file -t "refs/tags/$TAG" 2>/dev/null || echo 'unknown')"
           echo "  Tag exists in local refs: $(git tag -l | grep "^$TAG$" || echo 'NOT FOUND')"
           
-          # Show tag information for debugging (tag object, not commit)
-          echo "📋 Tag object information:"
-          if git cat-file -t "$TAG" | grep -q "tag"; then
-            git cat-file tag "$TAG" | head -10
+          # Determine the correct tag reference to use
+          TAG_REF="$TAG"
+          if git cat-file -t "refs/tags/$TAG" 2>/dev/null | grep -q "tag"; then
+            TAG_REF="refs/tags/$TAG"
+            echo "  Using full ref: $TAG_REF"
+          elif git cat-file -t "$TAG" 2>/dev/null | grep -q "tag"; then
+            echo "  Using short ref: $TAG_REF"
           else
-            echo "⚠️  Not a tag object, showing commit info:"
-            git show --no-patch --format="  Commit: %H%n  Author: %an <%ae>%n  Date: %ai%n  Subject: %s" "$TAG"
+            echo "⚠️  Warning: Tag reference resolves to commit, trying explicit refs..."
+            # List all possible tag references
+            echo "  Available tag refs:"
+            git for-each-ref refs/tags/ --format="%(refname) -> %(objecttype)" | grep "$TAG" || echo "    No matching tag refs found"
+            
+            # Try to find the actual tag object
+            if git show-ref --tags | grep -q "refs/tags/$TAG$"; then
+              TAG_REF="refs/tags/$TAG"
+              echo "  Found explicit tag ref: $TAG_REF"
+            fi
           fi
           
-          # Verify the tag signature (will fail if tag is unsigned or signature is bad)
-          echo "🔐 Attempting tag signature verification..."
-          if git verify-tag "$TAG" 2>&1; then
+          # Show tag information for debugging
+          echo "📋 Tag object information (using $TAG_REF):"
+          if git cat-file -t "$TAG_REF" 2>/dev/null | grep -q "tag"; then
+            echo "✅ Found tag object, showing tag info:"
+            git cat-file tag "$TAG_REF" | head -10
+          else
+            echo "⚠️  Not a tag object, showing commit info:"
+            git show --no-patch --format="  Commit: %H%n  Author: %an <%ae>%n  Date: %ai%n  Subject: %s" "$TAG_REF"
+          fi
+          
+          # Verify the tag signature using the correct reference
+          echo "🔐 Attempting tag signature verification (using $TAG_REF)..."
+          if git verify-tag "$TAG_REF" 2>&1; then
             echo "✅ Tag signature verified successfully"
           else
             echo "❌ Tag signature verification failed"
-            echo "🔍 Attempting alternative verification methods..."
+            echo "🔍 Debugging tag verification issue..."
             
-            # Try explicit tag object verification
-            if git cat-file -t "$TAG" | grep -q "tag"; then
-              echo "  Tag object exists, trying direct verification..."
-              git verify-tag "$TAG" --verbose 2>&1 || true
+            # Show detailed git information
+            echo "  Git ref information:"
+            git show-ref | grep "$TAG" || echo "    No refs found for $TAG"
+            
+            echo "  Tag object details:"
+            git for-each-ref refs/tags/ --format="%(refname) %(objecttype) %(objectname)" | grep "$TAG" || echo "    No tag object found"
+            
+            # Try alternative verification approaches
+            echo "  Trying alternative verification methods..."
+            
+            # Method 1: Direct tag object verification
+            if git show-ref --tags | grep -q "refs/tags/$TAG$"; then
+              echo "    Method 1: Using explicit refs/tags/$TAG"
+              git verify-tag "refs/tags/$TAG" --verbose 2>&1 || echo "    Failed"
             fi
             
-            # Show what refs we have
-            echo "  Available tag refs:"
-            git for-each-ref refs/tags/ --format="%(refname:short) -> %(objecttype)" | grep "$TAG" || echo "    No matching tag refs found"
+            # Method 2: Check if it's an annotated tag
+            COMMIT_HASH=$(git rev-parse "$TAG^{commit}" 2>/dev/null || echo "")
+            TAG_HASH=$(git rev-parse "$TAG" 2>/dev/null || echo "")
+            echo "    Commit hash: $COMMIT_HASH"
+            echo "    Tag hash: $TAG_HASH"
+            
+            if [ "$COMMIT_HASH" != "$TAG_HASH" ]; then
+              echo "    Tag is annotated (hashes differ), should be verifiable"
+            else
+              echo "    Tag appears to be lightweight (hashes same), cannot verify signature"
+            fi
             
             exit 1
           fi
