@@ -1,9 +1,10 @@
 name: Create and publish a Docker image
 
-# Configures this workflow to run every time a change is pushed to the branch called `main`.
+# Configures this workflow to run on main branch pushes and signed release tags
 on:
   push:
-    branches: ['main']
+    branches: ['main']         # keep quick checks for PRs
+    tags: ['fennel-node-*']    # run only for release tags
 
 # Defines two custom environment variables for the workflow. These are used for the Container registry domain, and a name for the Docker image that this workflow builds.
 env:
@@ -24,6 +25,32 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for tag verification
+
+      # Verify tag signature for release builds
+      - name: Verify tag signature
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          TAG=${GITHUB_REF#refs/tags/}
+          echo "🔐 Verifying signature for tag: $TAG"
+
+          # Import the trusted public key
+          gpg --import .github/release-signing.pub.asc
+          
+          # Basic validation that this is a proper release tag
+          if [[ ! "$TAG" =~ ^fennel-node-[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "❌ Invalid tag format. Expected: fennel-node-X.Y.Z"
+            exit 1
+          fi
+          
+          # Verify the tag signature (will fail if tag is unsigned or signature is bad)
+          if git verify-tag "$TAG"; then
+            echo "✅ Tag signature verified successfully"
+          else
+            echo "❌ Tag signature verification failed"
+            exit 1
+          fi
 
       # Free up additional disk space on GitHub runner (~20-25 GB)
       # Enhanced cleanup for Polkadot SDK builds without cache
@@ -111,6 +138,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
+            type=raw,value=${{ github.ref_name }},enable=${{ startsWith(github.ref, 'refs/tags/') }}
             type=ref,event=branch
             type=ref,event=pr
             type=semver,pattern={{version}}
@@ -451,6 +479,66 @@ jobs:
             echo "✅ Staging chainspecs committed and pushed to repository on branch ${GITHUB_REF#refs/heads/}"
           fi
 
+      # Compute chainspec SHA-256 for security verification
+      - name: Compute chainspec SHA-256
+        id: specsha
+        run: |
+          set -euo pipefail
+          echo "🔐 Computing chainspec SHA-256 hashes for security verification..."
+          
+          # Compute SHA-256 for staging chainspec
+          if [ -f "chainspecs/staging/staging-raw.json" ]; then
+            STAGING_SHA=$(sha256sum chainspecs/staging/staging-raw.json | awk '{print $1}')
+            echo "staging_sha=$STAGING_SHA" >> $GITHUB_OUTPUT
+            echo "✅ Staging chainspec SHA-256: $STAGING_SHA"
+          else
+            echo "⚠️  Staging chainspec not found"
+          fi
+          
+          # Compute SHA-256 for development chainspec  
+          if [ -f "chainspecs/development/development-raw.json" ]; then
+            DEV_SHA=$(sha256sum chainspecs/development/development-raw.json | awk '{print $1}')
+            echo "dev_sha=$DEV_SHA" >> $GITHUB_OUTPUT
+            echo "✅ Development chainspec SHA-256: $DEV_SHA"
+          else
+            echo "⚠️  Development chainspec not found"
+          fi
+          
+          echo "🔒 Chainspec hashes computed for runtime verification"
+
+      - name: Verify chainspec integrity
+        run: |
+          set -euo pipefail
+          echo "🔍 Verifying chainspec integrity..."
+          
+          # Check that chainspecs are not empty and contain expected structure
+          for spec in "chainspecs/development/development.json" "chainspecs/staging/staging-chainspec.json"; do
+            if [ -f "$spec" ]; then
+              # Verify it's valid JSON with expected fields
+              if jq -e '.name' "$spec" >/dev/null 2>&1; then
+                echo "✅ $spec: Valid JSON structure"
+              else
+                echo "❌ $spec: Invalid JSON structure"
+                exit 1
+              fi
+            else
+              echo "❌ Missing chainspec: $spec"
+              exit 1
+            fi
+          done
+          
+          # Verify raw chainspecs are not empty
+          for rawspec in "chainspecs/development/development-raw.json" "chainspecs/staging/staging-raw.json"; do
+            if [ -f "$rawspec" ] && [ -s "$rawspec" ]; then
+              echo "✅ $rawspec: Non-empty raw chainspec"
+            else
+              echo "❌ $rawspec: Missing or empty raw chainspec"
+              exit 1
+            fi
+          done
+          
+          echo "✅ All chainspecs verified successfully"
+
       - name: Upload chain specs as artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -516,10 +604,17 @@ jobs:
       - name: Extract image tag from metadata
         id: extract-tag
         run: |
-          # Extract the sha-prefixed tag from the metadata
-          SHA_TAG=$(echo "${{ steps.meta.outputs.tags }}" | grep -oE 'sha-[a-f0-9]+' | head -1)
-          echo "tag=${SHA_TAG}" >> $GITHUB_OUTPUT
-          echo "✅ Extracted image tag: ${SHA_TAG}"
+          # For tagged releases, use the tag name directly
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            TAG="${{ github.ref_name }}"
+            echo "tag=${TAG}" >> $GITHUB_OUTPUT
+            echo "✅ Using release tag: ${TAG}"
+          else
+            # For branch builds, extract the sha-prefixed tag from the metadata
+            SHA_TAG=$(echo "${{ steps.meta.outputs.tags }}" | grep -oE 'sha-[a-f0-9]+' | head -1)
+            echo "tag=${SHA_TAG}" >> $GITHUB_OUTPUT
+            echo "✅ Extracted image tag: ${SHA_TAG}"
+          fi
 
       - name: Update base values.yaml
         uses: fjogeleit/yaml-update-action@v0.13.2
@@ -529,12 +624,46 @@ jobs:
           value: ${{ steps.extract-tag.outputs.tag }}
           commitChange: false
 
+      - name: Update base values.yaml with digest
+        uses: fjogeleit/yaml-update-action@v0.13.2
+        with:
+          valueFile: 'Charts/fennel-node/values.yaml'
+          propertyPath: 'image.digest'
+          value: ${{ steps.build.outputs.digest }}
+          commitChange: false
+
       - name: Update staging values.yaml
         uses: fjogeleit/yaml-update-action@v0.13.2
         with:
           valueFile: 'Charts/fennel-node/values-staging.yaml'
           propertyPath: 'image.tag'
           value: ${{ steps.extract-tag.outputs.tag }}
+          commitChange: false
+
+      - name: Update staging values.yaml with digest
+        uses: fjogeleit/yaml-update-action@v0.13.2
+        with:
+          valueFile: 'Charts/fennel-node/values-staging.yaml'
+          propertyPath: 'image.digest'
+          value: ${{ steps.build.outputs.digest }}
+          commitChange: false
+
+      - name: Update staging values with chainspec SHA-256
+        if: steps.specsha.outputs.staging_sha
+        uses: fjogeleit/yaml-update-action@v0.13.2
+        with:
+          valueFile: 'Charts/fennel-node/values-staging.yaml'
+          propertyPath: 'node.customChainspecSha256'
+          value: ${{ steps.specsha.outputs.staging_sha }}
+          commitChange: false
+
+      - name: Update staging values with release tag (for tagged releases)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: fjogeleit/yaml-update-action@v0.13.2
+        with:
+          valueFile: 'Charts/fennel-node/values-staging.yaml'
+          propertyPath: 'releaseTag'
+          value: ${{ github.ref_name }}
           commitChange: false
 
       - name: Lint Helm chart
@@ -552,165 +681,8 @@ jobs:
           echo "📦 Packaged chart:"
           ls -la release/
 
-      - name: Configure Git for chart release
-        run: |
-          git config user.name "$GITHUB_ACTOR"
-          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
-
-      - name: Publish Helm chart to GitHub Pages
-        run: |
-          set -euo pipefail
-          
-          echo "🚀 Publishing Helm chart to GitHub Pages..."
-          
-          # Store current chart version
-          CHART_VERSION=$(grep '^version:' Charts/fennel-node/Chart.yaml | awk '{print $2}')
-          echo "Chart version: $CHART_VERSION"
-          
-          # Create a temporary directory for gh-pages content
-          TEMP_DIR=$(mktemp -d)
-          echo "Working in temporary directory: $TEMP_DIR"
-          
-          # Initialize git in temp directory
-          cd "$TEMP_DIR"
-          git init
-          git config user.name "$GITHUB_ACTOR"
-          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
-          
-          # Add remote
-          git remote add origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
-          
-          # Try to fetch existing gh-pages branch
-          if git ls-remote --heads origin gh-pages | grep -q gh-pages; then
-            echo "📥 Fetching existing gh-pages branch..."
-            git fetch origin gh-pages
-            git checkout gh-pages
-          else
-            echo "🆕 Creating new gh-pages branch..."
-            git checkout --orphan gh-pages
-            # Remove any files that might exist
-            git rm -rf . 2>/dev/null || true
-          fi
-          
-          # Create directory structure for Helm repository
-          mkdir -p charts
-          
-          # Copy the packaged chart
-          cp "${GITHUB_WORKSPACE}/release"/*.tgz charts/
-          
-          # Generate Helm repository index
-          helm repo index charts --url "https://corruptedaesthetic.github.io/fennel-solonet"
-          
-          # Create a simple index.html for the repository
-          cat > index.html << 'EOF'
-          <!DOCTYPE html>
-          <html>
-          <head>
-              <title>Fennel Node Helm Repository</title>
-              <style>
-                  body { font-family: Arial, sans-serif; margin: 40px; }
-                  .header { color: #2c3e50; }
-                  .code { background-color: #f4f4f4; padding: 10px; border-radius: 5px; }
-                  .chart-list { margin-top: 20px; }
-              </style>
-          </head>
-          <body>
-              <h1 class="header">🌿 Fennel Node Helm Repository</h1>
-              <p>This repository contains Helm charts for the Fennel blockchain node.</p>
-              
-              <h2>Usage</h2>
-              <div class="code">
-                  <strong>Add this repository:</strong><br>
-                  <code>helm repo add fennel https://corruptedaesthetic.github.io/fennel-solonet</code><br><br>
-                  
-                  <strong>Update repositories:</strong><br>
-                  <code>helm repo update</code><br><br>
-                  
-                  <strong>Install Fennel node:</strong><br>
-                  <code>helm install fennel-node fennel/fennel-node</code>
-              </div>
-              
-              <h2>Available Charts</h2>
-              <div class="chart-list">
-                  <ul>
-                      <li><strong>fennel-node</strong> - Fennel blockchain node deployment</li>
-                  </ul>
-              </div>
-              
-              <h2>Repository Files</h2>
-              <ul>
-                  <li><a href="charts/">charts/</a> - Chart packages and index</li>
-                  <li><a href="charts/index.yaml">charts/index.yaml</a> - Helm repository index</li>
-              </ul>
-              
-              <hr>
-              <p><small>Generated automatically by GitHub Actions</small></p>
-          </body>
-          </html>
-          EOF
-          
-          # Create README for the repository
-          cat > README.md << EOF
-          # Fennel Node Helm Repository
-          
-          This is the Helm repository for Fennel blockchain node charts.
-          
-          ## Usage
-          
-          \`\`\`bash
-          # Add the repository
-          helm repo add fennel https://corruptedaesthetic.github.io/fennel-solonet
-          
-          # Update repositories
-          helm repo update
-          
-          # Install Fennel node
-          helm install fennel-node fennel/fennel-node
-          \`\`\`
-          
-          ## Available Charts
-          
-          - **fennel-node** - Fennel blockchain node deployment chart
-          
-          ## Chart Version: $CHART_VERSION
-          
-          Generated automatically by GitHub Actions.
-          EOF
-          
-          # Show what we're about to commit
-          echo "📋 Repository structure:"
-          find . -type f | sort
-          
-          echo "📄 Charts index content:"
-          cat charts/index.yaml
-          
-          # Add all files
-          git add .
-          
-          # Commit changes
-          if git diff --staged --quiet; then
-            echo "ℹ️  No changes to commit"
-          else
-            git commit -m "📦 Update Helm repository - fennel-node v$CHART_VERSION
-          
-          - Added fennel-node chart version $CHART_VERSION
-          - Updated repository index
-          - Generated: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
-            
-            echo "📤 Pushing to gh-pages branch..."
-            git push origin gh-pages --force
-            
-            echo "✅ Helm chart repository published successfully!"
-            echo "🌐 Repository URL: https://corruptedaesthetic.github.io/fennel-solonet"
-            echo "📊 Charts URL: https://corruptedaesthetic.github.io/fennel-solonet/charts"
-          fi
-          
-          # Cleanup
-          cd "$GITHUB_WORKSPACE"
-          rm -rf "$TEMP_DIR"
-
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
@@ -721,6 +693,8 @@ jobs:
             chainspecs/staging/staging-chainspec.json
             chainspecs/staging/staging-raw.json
           generate_release_notes: true
+          fail_on_unmatched_files: true
+          overwrite_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -755,3 +729,14 @@ jobs:
           echo "### 📦 Helm Chart" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Chart packaged and published" >> $GITHUB_STEP_SUMMARY
           echo "- **Version**: \`$(helm show chart release/*.tgz | grep '^version:' | awk '{print $2}')\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Digest**: \`${{ steps.build.outputs.digest }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔐 Security Checks" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Chainspec SHA-256 computed" >> $GITHUB_STEP_SUMMARY
+          echo "- Staging: \`${{ steps.specsha.outputs.staging_sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Development: \`${{ steps.specsha.outputs.dev_sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "- [Docker image info](https://github.com/${{ github.repository }}/actions/artifacts/${{ steps.build.outputs.artifact_id }})" >> $GITHUB_STEP_SUMMARY
+          echo "- [Helm chart](https://github.com/${{ github.repository }}/actions/artifacts/${{ steps.chart.outputs.artifact_id }})" >> $GITHUB_STEP_SUMMARY
+          echo "- [Chainspecs](https://github.com/${{ github.repository }}/actions/artifacts/${{ steps.chainspecs.outputs.artifact_id }})" >> $GITHUB_STEP_SUMMARY

@@ -4,7 +4,11 @@
 image:
   repository: "ghcr.io/corruptedaesthetic/fennel-solonet"
   tag: "dev-placeholder"  # Will be updated by CI
+  digest: ""  # Image digest for cryptographic verification (set by CI)
   pullPolicy: Always
+
+# Release information (set by CI for tagged releases)
+releaseTag: ""
 
 chainspec:
   file: "staging-chainspec.json"
@@ -25,6 +29,7 @@ node:
     
     customChainspec: true
     customChainspecPath: "/chainspec/staging-chainspec.json"
+    customChainspecSha256: ""  # SHA-256 hash for verification (set by CI)
     
     chainData:
       storageClass: "local-path"  # Adjust for your Azure cluster

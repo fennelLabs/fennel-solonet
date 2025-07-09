@@ -2,7 +2,11 @@
 image:
   repository: "ghcr.io/corruptedaesthetic/fennel-solonet"
   tag:        "dev-placeholder"
+  digest:     ""  # Image digest for cryptographic verification (set by CI)
   pullPolicy: IfNotPresent
+
+# Release information (set by CI for tagged releases)
+releaseTag: ""
 
 # OFFICIAL PARITY PATTERN: Init containers configuration
 initContainers:
@@ -43,6 +47,8 @@ node:
   customChainspecPath: "/chain-data/chainspec.json"
   # URL to retrieve custom chain spec (OFFICIAL PARITY PATTERN)
   customChainspecUrl: ""
+  # SHA-256 hash of the chainspec for verification (set by CI)
+  customChainspecSha256: ""
   # Replace chain spec if it already exists
   forceDownloadChainspec: false
 
