@@ -616,6 +616,23 @@ jobs:
             echo "✅ Extracted image tag: ${SHA_TAG}"
           fi
 
+      # Update Chart.yaml version to match release tag (Helm best practice: chart version == app version)
+      - name: Update Chart.yaml version for releases
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          # Extract version from tag (fennel-node-X.Y.Z -> X.Y.Z)
+          CHART_VERSION="${{ github.ref_name }}"
+          CHART_VERSION="${CHART_VERSION#fennel-node-}"  # Remove fennel-node- prefix
+          
+          echo "🏷️  Updating Chart.yaml version to: $CHART_VERSION"
+          
+          # Update both version and appVersion in Chart.yaml
+          sed -i "s/^version: .*/version: $CHART_VERSION/" Charts/fennel-node/Chart.yaml
+          sed -i "s/^appVersion: .*/appVersion: \"$CHART_VERSION\"/" Charts/fennel-node/Chart.yaml
+          
+          echo "✅ Chart.yaml updated:"
+          grep -E "^(version|appVersion):" Charts/fennel-node/Chart.yaml
+
       - name: Update base values.yaml
         uses: fjogeleit/yaml-update-action@v0.13.2
         with:
@@ -737,6 +754,8 @@ jobs:
           echo "- Development: \`${{ steps.specsha.outputs.dev_sha }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📦 Artifacts" >> $GITHUB_STEP_SUMMARY
-          echo "- [Docker image info](https://github.com/${{ github.repository }}/actions/artifacts/${{ steps.build.outputs.artifact_id }})" >> $GITHUB_STEP_SUMMARY
-          echo "- [Helm chart](https://github.com/${{ github.repository }}/actions/artifacts/${{ steps.chart.outputs.artifact_id }})" >> $GITHUB_STEP_SUMMARY
-          echo "- [Chainspecs](https://github.com/${{ github.repository }}/actions/artifacts/${{ steps.chainspecs.outputs.artifact_id }})" >> $GITHUB_STEP_SUMMARY
+          echo "- 🐳 **fennel-node-image-info**: Docker image metadata and build info" >> $GITHUB_STEP_SUMMARY
+          echo "- ⚓ **fennel-helm-chart**: Packaged Helm chart (\`.tgz\`)" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔗 **fennel-chainspecs**: Development and staging chainspecs (JSON + raw)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🔍 **View artifacts**: Go to the [Actions tab](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for this workflow run." >> $GITHUB_STEP_SUMMARY
