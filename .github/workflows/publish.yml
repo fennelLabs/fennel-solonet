@@ -27,6 +27,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0  # Fetch all history for tag verification
+          fetch-tags: true  # Explicitly fetch all tags
 
       # Verify tag signature for release builds
       - name: Verify tag signature
@@ -43,6 +44,17 @@ jobs:
             echo "❌ Invalid tag format. Expected: fennel-node-X.Y.Z"
             exit 1
           fi
+          
+          # Ensure the tag exists and is available locally
+          echo "🔍 Checking if tag exists locally..."
+          if ! git tag -l | grep -q "^$TAG$"; then
+            echo "⚠️  Tag not found locally, fetching..."
+            git fetch origin "refs/tags/$TAG:refs/tags/$TAG"
+          fi
+          
+          # Show tag information for debugging
+          echo "📋 Tag information:"
+          git show --no-patch --format="  Type: %s%n  Author: %an <%ae>%n  Date: %ai" "$TAG" || echo "Could not show tag info"
           
           # Verify the tag signature (will fail if tag is unsigned or signature is bad)
           if git verify-tag "$TAG"; then

@@ -31,13 +31,15 @@ print_error() {
 
 # Check arguments
 if [ $# -lt 1 ]; then
-    print_error "Usage: $0 <version> [message]"
+    print_error "Usage: $0 <version> [message] [commit]"
     echo "Example: $0 0.4.3 'Enhanced CI/CD with security features'"
+    echo "         $0 0.4.3 'Release 0.4.3' abc123def  # tag specific commit"
     exit 1
 fi
 
 VERSION="$1"
 MESSAGE="${2:-Fennel node v$VERSION}"
+TARGET_COMMIT="${3:-HEAD}"  # Default to HEAD if no commit specified
 
 # Validate version format
 if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -65,6 +67,25 @@ if ! git diff --quiet || ! git diff --staged --quiet; then
     fi
 fi
 
+# Show current commit information
+CURRENT_COMMIT=$(git rev-parse $TARGET_COMMIT)
+if [ "$TARGET_COMMIT" = "HEAD" ]; then
+    print_status "Target commit (HEAD): $CURRENT_COMMIT"
+else
+    print_status "Target commit: $CURRENT_COMMIT"
+fi
+print_status "Commit details:"
+git show --no-patch --format="  %H - %s (%an, %ar)" $TARGET_COMMIT
+
+echo ""
+print_status "This tag will point to the above commit."
+read -p "Proceed with tagging this commit? (Y/n): " -n 1 -r
+echo
+if [[ $REPLY =~ ^[Nn]$ ]]; then
+    print_status "Tagging cancelled."
+    exit 0
+fi
+
 # Check GPG setup
 print_status "Checking GPG configuration..."
 if ! git config user.signingkey &>/dev/null; then
@@ -77,7 +98,7 @@ print_success "Using GPG key: $SIGNING_KEY"
 
 # Create the signed tag
 print_status "Creating signed tag..."
-if git tag -s "$TAG_NAME" -m "$MESSAGE"; then
+if git tag -s "$TAG_NAME" -m "$MESSAGE" "$TARGET_COMMIT"; then
     print_success "Signed tag created: $TAG_NAME"
 else
     print_error "Failed to create signed tag"
