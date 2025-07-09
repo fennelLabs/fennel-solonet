@@ -28,6 +28,40 @@ jobs:
         with:
           fetch-depth: 0  # Fetch all history for tag verification
           fetch-tags: true  # Explicitly fetch all tags
+          ref: ${{ github.ref }}  # Ensure we check out the exact ref that triggered the workflow
+
+      # Ensure tag objects are properly fetched (GitHub Actions sometimes fetches only refs)
+      - name: Refetch tag objects
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          TAG=${GITHUB_REF#refs/tags/}
+          echo "🔄 Ensuring tag object is available for: $TAG"
+          
+          # Force refetch the tag with its object
+          git fetch origin "refs/tags/$TAG:refs/tags/$TAG" --force
+          
+          # Verify we now have the tag object
+          echo "📋 Post-fetch verification:"
+          echo "  Tag type: $(git cat-file -t "refs/tags/$TAG" 2>/dev/null || echo 'unknown')"
+          echo "  Tag hash: $(git rev-parse "refs/tags/$TAG" 2>/dev/null || echo 'unknown')"
+          echo "  Commit hash: $(git rev-parse "refs/tags/$TAG^{commit}" 2>/dev/null || echo 'unknown')"
+          
+          # They should be different for annotated tags
+          TAG_HASH=$(git rev-parse "refs/tags/$TAG" 2>/dev/null || echo '')
+          COMMIT_HASH=$(git rev-parse "refs/tags/$TAG^{commit}" 2>/dev/null || echo '')
+          
+          if [ "$TAG_HASH" != "$COMMIT_HASH" ] && [ -n "$TAG_HASH" ] && [ -n "$COMMIT_HASH" ]; then
+            echo "✅ Annotated tag object successfully fetched"
+          else
+            echo "⚠️  Tag object may not be properly fetched, attempting alternative fetch..."
+            # Try fetching all tag objects
+            git fetch origin '+refs/tags/*:refs/tags/*' --force
+            
+            # Re-verify
+            NEW_TAG_HASH=$(git rev-parse "refs/tags/$TAG" 2>/dev/null || echo '')
+            NEW_COMMIT_HASH=$(git rev-parse "refs/tags/$TAG^{commit}" 2>/dev/null || echo '')
+            echo "  After alternative fetch - Tag: $NEW_TAG_HASH, Commit: $NEW_COMMIT_HASH"
+          fi
 
       # Verify tag signature for release builds
       - name: Verify tag signature
