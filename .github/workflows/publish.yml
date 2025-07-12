@@ -257,6 +257,72 @@ jobs:
             type=sha,format=long
       
       # ------------------------------------------------------------
+      # PRODUCTION KEY EXPORT (following Vault/CI/CD methodology)
+      # Export public keys for production builds - MANDATORY for releases
+      # Following the field-tested methodology from MOSTUPTODATEMETHODOLOGYEURKEA.md
+      # ------------------------------------------------------------
+      - name: Export production public keys from Vault/Secrets
+        run: |
+          set -euo pipefail
+          echo "🔐 Setting up production environment variables following Vault/CI/CD methodology..."
+          
+          # For production releases, use real keys from GitHub Secrets (Vault integration)
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            echo "🏭 Production release detected - exporting production keys from Vault"
+            
+            # Install Vault CLI for public key access
+            echo "📦 Installing Vault CLI..."
+            wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+            echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+            sudo apt update && sudo apt install vault
+            
+            # Configure Vault connection
+            # TODO: Replace with proper production Vault endpoint and GitHub OIDC auth
+            export VAULT_ADDR="${{ secrets.VAULT_ADDR }}"  # e.g., https://vault.your-domain.com
+            export VAULT_TOKEN="${{ secrets.VAULT_CI_TOKEN }}"  # CI-specific read-only token
+            
+            # Verify Vault connection
+            if ! vault status; then
+              echo "❌ ERROR: Cannot connect to Vault at $VAULT_ADDR"
+              echo "🔧 Check VAULT_ADDR and VAULT_CI_TOKEN secrets"
+              exit 1
+            fi
+            
+            # MANDATORY production keys - build will fail if any are missing
+            # Following the methodology: GitHub Actions pulls public values from Vault,
+            # exports them as environment variables, and Rust compiler substitutes them
+            # into the preset at build time via env!() macros
+            
+            echo "🔑 Fetching production public keys from Vault..."
+            
+            # Fetch keys from Vault KV store
+            export SUDO_SS58=$(vault kv get -field=sudo_ss58 kv/fennel-production/ci-cd/sudo 2>/dev/null || echo "")
+            export VAL1_AURA_PUB=$(vault kv get -field=aura_public kv/fennel-production/ci-cd/validator-1 2>/dev/null || echo "")
+            export VAL1_GRANDPA_PUB=$(vault kv get -field=grandpa_public kv/fennel-production/ci-cd/validator-1 2>/dev/null || echo "")
+            export VAL1_STASH_SS58=$(vault kv get -field=stash_ss58 kv/fennel-production/ci-cd/validator-1 2>/dev/null || echo "")
+            export VAL2_AURA_PUB=$(vault kv get -field=aura_public kv/fennel-production/ci-cd/validator-2 2>/dev/null || echo "")
+            export VAL2_GRANDPA_PUB=$(vault kv get -field=grandpa_public kv/fennel-production/ci-cd/validator-2 2>/dev/null || echo "")
+            export VAL2_STASH_SS58=$(vault kv get -field=stash_ss58 kv/fennel-production/ci-cd/validator-2 2>/dev/null || echo "")
+            
+            # Verify all production variables are set (prevent empty values)
+            for var in SUDO_SS58 VAL1_AURA_PUB VAL1_GRANDPA_PUB VAL1_STASH_SS58 VAL2_AURA_PUB VAL2_GRANDPA_PUB VAL2_STASH_SS58; do
+              if [ -z "${!var:-}" ]; then
+                echo "❌ ERROR: Production variable $var is empty or missing from Vault!"
+                echo "🔧 Check Vault KV store at kv/fennel-production/ci-cd/"
+                exit 1
+              fi
+            done
+            
+            echo "✅ All 7 production environment variables fetched from Vault and validated"
+            echo "🔒 Using production public keys from Vault (private keys remain secure in Vault)"
+          else
+            echo "🧪 Development/staging build - production variables not required"
+            echo "📋 Development/staging presets use Alice/Bob hardcoded keys from sp_keyring"
+            echo "⚠️  Production environment variables will NOT be set for non-release builds"
+            echo "🛡️  This is intentional - development uses different preset logic"
+          fi
+
+      # ------------------------------------------------------------
       # Build the runtime deterministically with srtool and capture
       # its SHA-256 so we can inject it as an OCI label.
       # ------------------------------------------------------------
@@ -265,13 +331,40 @@ jobs:
         run: |
           set -euo pipefail
           echo "🛠️  Running srtool to build compact runtime…"
-          # Build runtime inside srtool container (outputs verbose log to console)
-          docker run --rm \
-            -v "${PWD}":/build \
-            -e RUNTIME_DIR=runtime/fennel \
-            -e PACKAGE=fennel-node-runtime \
-            --workdir /build \
-            paritytech/srtool:1.84.1
+          
+          # Build command with conditional environment variables
+          # For production releases: pass mandatory environment variables
+          # For development/staging: build without production env vars (uses Alice/Bob presets)
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            echo "🏭 Building production runtime with Vault-sourced public keys"
+            
+            # Production build with mandatory environment variables
+            # These MUST be set or build.rs will fail with clear error message
+            docker run --rm \
+              -v "${PWD}":/build \
+              -e RUNTIME_DIR=runtime/fennel \
+              -e PACKAGE=fennel-node-runtime \
+              -e SUDO_SS58="${SUDO_SS58}" \
+              -e VAL1_AURA_PUB="${VAL1_AURA_PUB}" \
+              -e VAL1_GRANDPA_PUB="${VAL1_GRANDPA_PUB}" \
+              -e VAL1_STASH_SS58="${VAL1_STASH_SS58}" \
+              -e VAL2_AURA_PUB="${VAL2_AURA_PUB}" \
+              -e VAL2_GRANDPA_PUB="${VAL2_GRANDPA_PUB}" \
+              -e VAL2_STASH_SS58="${VAL2_STASH_SS58}" \
+              --workdir /build \
+              paritytech/srtool:1.84.1
+          else
+            echo "🧪 Building development/staging runtime (no production env vars needed)"
+            
+            # Development/staging build without production environment variables
+            # build.rs will NOT enforce mandatory variables for non-production builds
+            docker run --rm \
+              -v "${PWD}":/build \
+              -e RUNTIME_DIR=runtime/fennel \
+              -e PACKAGE=fennel-node-runtime \
+              --workdir /build \
+              paritytech/srtool:1.84.1
+          fi
 
           # After the container exits the compiled Wasm lives in the mounted volume
           HASH=$(sha256sum runtime/fennel/target/srtool/release/wbuild/fennel-node-runtime/fennel_node_runtime.compact.wasm | awk '{print "0x"$1}')
@@ -423,8 +516,16 @@ jobs:
           # Only update if there are changes (idempotent)
           CURRENT_BOOTNODES=$(jq -c '.bootNodes // []' "$SPEC")
           if [ "$CURRENT_BOOTNODES" != "$EXTERNAL_BOOTNODES" ]; then
-            echo "📝 Updating bootNodes in ${TARGET} chain spec with derived peer IDs..."
-            jq --argjson arr "$EXTERNAL_BOOTNODES" '.bootNodes = $arr' "$SPEC" > tmp.json && mv tmp.json "$SPEC"
+            echo "📝 Updating bootNodes in ${TARGET} chain spec with derived peer IDs and chain metadata..."
+            jq --argjson arr "$EXTERNAL_BOOTNODES" \
+               --arg ss58 "42" \
+               '.bootNodes = $arr
+                | .protocolId = "fenn"
+                | .properties = {
+                    "ss58Format": ($ss58|tonumber),
+                    "tokenDecimals": 18,
+                    "tokenSymbol": "FNL"
+                  }' "$SPEC" > tmp.json && mv tmp.json "$SPEC"
             
             # Regenerate raw spec with bootnodes included
             echo "🔄 Regenerating raw ${TARGET} spec with derived bootnodes..."
@@ -544,8 +645,16 @@ jobs:
           # Only update if there are changes (idempotent)
           CURRENT_BOOTNODES=$(jq -c '.bootNodes // []' "$SPEC")
           if [ "$CURRENT_BOOTNODES" != "$EXTERNAL_BOOTNODES" ]; then
-            echo "📝 Updating bootNodes in ${TARGET} chain spec with derived peer IDs..."
-            jq --argjson arr "$EXTERNAL_BOOTNODES" '.bootNodes = $arr' "$SPEC" > tmp.json && mv tmp.json "$SPEC"
+            echo "📝 Updating bootNodes in ${TARGET} chain spec with derived peer IDs and chain metadata..."
+            jq --argjson arr "$EXTERNAL_BOOTNODES" \
+               --arg ss58 "42" \
+               '.bootNodes = $arr
+                | .protocolId = "fenn"
+                | .properties = {
+                    "ss58Format": ($ss58|tonumber),
+                    "tokenDecimals": 18,
+                    "tokenSymbol": "FNL"
+                  }' "$SPEC" > tmp.json && mv tmp.json "$SPEC"
             
             # Regenerate raw spec with bootnodes included
             echo "🔄 Regenerating raw ${TARGET} spec with derived bootnodes..."
@@ -590,6 +699,149 @@ jobs:
             echo "✅ Staging chainspecs committed and pushed to repository on branch ${GITHUB_REF#refs/heads/}"
           fi
 
+      # ------------------------------------------------------------
+      # PRODUCTION CHAINSPEC GENERATION
+      # Only generate production chainspecs for release tags
+      # ------------------------------------------------------------
+      - name: Create production chain specs
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          set -euo pipefail
+          
+          echo "🏭 Generating production chainspecs for release tag..."
+          
+          # Create production directory in chainspecs if it doesn't exist
+          mkdir -p chainspecs/production
+          
+          # Generate production chain spec
+          echo "Generating production chain spec..."
+          chain-spec-builder \
+            -c chainspecs/production/production-chainspec.json \
+            create \
+            -r runtime/fennel/target/srtool/release/wbuild/fennel-node-runtime/fennel_node_runtime.compact.wasm \
+            named-preset production
+          
+          # Generate raw production chain spec
+          echo "Generating raw production chain spec..."
+          chain-spec-builder \
+            -c chainspecs/production/production-raw.json \
+            convert-to-raw \
+            chainspecs/production/production-chainspec.json
+          
+          # Verify the production specs were created
+          echo "✅ Generated production chain specifications:"
+          ls -la chainspecs/production/
+          
+          # Quick verification of content
+          echo "Verifying production-chainspec.json content:"
+          jq '.name' chainspecs/production/production-chainspec.json || echo "Failed to parse JSON"
+          
+          # Comprehensive verification
+          echo -e "\n📋 Verification of generated files:"
+          ls -l chainspecs/production/production-chainspec.json chainspecs/production/production-raw.json
+          
+          echo -e "\n📄 Chain spec structure (first 5 lines):"
+          jq . chainspecs/production/production-chainspec.json 2>/dev/null | head -n 5 || true
+          
+          echo -e "\n🔍 Checking file sizes:"
+          stat -c "production-chainspec.json: %s bytes" chainspecs/production/production-chainspec.json
+          stat -c "production-raw.json: %s bytes" chainspecs/production/production-raw.json
+          
+          # Ensure files are not empty
+          if [ ! -s chainspecs/production/production-chainspec.json ]; then
+            echo "❌ Error: production-chainspec.json is empty!"
+            exit 1
+          fi
+          if [ ! -s chainspecs/production/production-raw.json ]; then
+            echo "❌ Error: production-raw.json is empty!"
+            exit 1
+          fi
+          echo "✅ All production chain spec files are populated"
+
+      - name: Inject bootnodes into production chain spec
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          set -euo pipefail
+          
+          echo "🔗 Injecting dynamically derived bootnodes into production chain spec..."
+          
+          TARGET="production"
+          SPEC="chainspecs/${TARGET}/production-chainspec.json"
+          
+          # Use external-only bootnodes (Parity's recommended approach)
+          # Both internal and external nodes use the same public endpoints
+          
+          # Decode bootnodes from base64 (safe transport through GitHub Actions env)
+          EXTERNAL_BOOTNODES=$(echo "$EXTERNAL_BOOTNODES_B64" | base64 -d)
+          echo "📋 Using external-only bootnode architecture: [MASKED - derived peer IDs]"
+          
+          # Update chain spec with production-specific settings
+          echo "📝 Updating production chain spec with derived peer IDs and production settings..."
+          jq --argjson arr "$EXTERNAL_BOOTNODES" \
+             --arg ss58 "42" \
+             '.bootNodes = $arr
+              | .chainType = "Live"
+              | .name = "Fennel Production Network"
+              | .id = "fennel_production"
+              | .protocolId = "fenn"
+              | .properties = {
+                  "ss58Format": ($ss58|tonumber),
+                  "tokenDecimals": 18,
+                  "tokenSymbol": "FNL"
+                }' "$SPEC" > tmp.json && mv tmp.json "$SPEC"
+          
+          # Regenerate raw spec with bootnodes included
+          echo "🔄 Regenerating raw production spec with derived bootnodes..."
+          chain-spec-builder \
+            -c "chainspecs/${TARGET}/production-raw.json" \
+            convert-to-raw \
+            "chainspecs/${TARGET}/production-chainspec.json"
+          
+          echo "✅ Production chainspec updated successfully with derived peer IDs"
+          
+          # Verify bootnodes configuration
+          echo "📊 Current production bootNodes configuration:"
+          jq '.bootNodes' "$SPEC" || echo "No bootNodes found"
+          
+          # Show production chain details
+          echo "📋 Production chain configuration:"
+          jq '{name: .name, id: .id, chainType: .chainType}' "$SPEC"
+
+      - name: Commit production chainspecs to repository
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          # Configure git
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          # Add the production chainspecs
+          git add chainspecs/production/production-chainspec.json chainspecs/production/production-raw.json
+          
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to production chainspecs"
+          else
+            # Commit the changes with [ci skip] to prevent retriggering
+            git commit -m "Add production chainspecs for release ${GITHUB_REF#refs/tags/} [ci skip]
+
+            🏭 Production Release: ${GITHUB_REF#refs/tags/}
+            - Peer IDs derived from GitHub secrets (BOOTNODE1_KEY_B64, BOOTNODE2_KEY_B64)
+            - Using external-only bootnode architecture (Parity best practice)
+            - Chain Type: Live (Production)
+            - Bootnode 1: $BOOTNODE1_PEER_ID
+            - Bootnode 2: $BOOTNODE2_PEER_ID
+            
+            🔐 Security Notes:
+            - Chainspec contains placeholder validator keys
+            - Real validator and bootnode keys managed via HashiCorp Vault
+            - Production deployment uses offline-generated keys"
+            
+            # Push the changes back to the repository
+            git push origin ${GITHUB_REF#refs/heads/}
+            
+            echo "✅ Production chainspecs committed and pushed to repository"
+          fi
+
       # Compute chainspec SHA-256 for security verification
       - name: Compute chainspec SHA-256
         id: specsha
@@ -615,6 +867,15 @@ jobs:
             echo "⚠️  Development chainspec not found"
           fi
           
+          # Compute SHA-256 for production chainspec (only for release tags)
+          if [ -f "chainspecs/production/production-raw.json" ]; then
+            PRODUCTION_SHA=$(sha256sum chainspecs/production/production-raw.json | awk '{print $1}')
+            echo "production_sha=$PRODUCTION_SHA" >> $GITHUB_OUTPUT
+            echo "✅ Production chainspec SHA-256: $PRODUCTION_SHA"
+          else
+            echo "⚠️  Production chainspec not found (expected for non-release builds)"
+          fi
+          
           echo "🔒 Chainspec hashes computed for runtime verification"
 
       - name: Verify chainspec integrity
@@ -623,7 +884,14 @@ jobs:
           echo "🔍 Verifying chainspec integrity..."
           
           # Check that chainspecs are not empty and contain expected structure
-          for spec in "chainspecs/development/development.json" "chainspecs/staging/staging-chainspec.json"; do
+          EXPECTED_SPECS=("chainspecs/development/development.json" "chainspecs/staging/staging-chainspec.json")
+          
+          # Add production chainspec verification for release tags
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            EXPECTED_SPECS+=("chainspecs/production/production-chainspec.json")
+          fi
+          
+          for spec in "${EXPECTED_SPECS[@]}"; do
             if [ -f "$spec" ]; then
               # Verify it's valid JSON with expected fields
               if jq -e '.name' "$spec" >/dev/null 2>&1; then
@@ -639,7 +907,14 @@ jobs:
           done
           
           # Verify raw chainspecs are not empty
-          for rawspec in "chainspecs/development/development-raw.json" "chainspecs/staging/staging-raw.json"; do
+          EXPECTED_RAW=("chainspecs/development/development-raw.json" "chainspecs/staging/staging-raw.json")
+          
+          # Add production raw chainspec verification for release tags
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            EXPECTED_RAW+=("chainspecs/production/production-raw.json")
+          fi
+          
+          for rawspec in "${EXPECTED_RAW[@]}"; do
             if [ -f "$rawspec" ] && [ -s "$rawspec" ]; then
               echo "✅ $rawspec: Non-empty raw chainspec"
             else
@@ -659,6 +934,9 @@ jobs:
             chainspecs/development/development-raw.json
             chainspecs/staging/staging-chainspec.json
             chainspecs/staging/staging-raw.json
+            chainspecs/production/production-chainspec.json
+            chainspecs/production/production-raw.json
+          if-no-files-found: ignore
       
       # This step uses the `docker/build-push-action` action to build the image, based on your repository's `Dockerfile`. If the build succeeds, it pushes the image to GitHub Packages.
       # It uses the `context` parameter to define the build's context as the set of files located in the specified path. For more information, see "[Usage](https://github.com/docker/build-push-action#usage)" in the README of the `docker/build-push-action` repository.
@@ -820,6 +1098,8 @@ jobs:
             chainspecs/development/development-raw.json
             chainspecs/staging/staging-chainspec.json
             chainspecs/staging/staging-raw.json
+            chainspecs/production/production-chainspec.json
+            chainspecs/production/production-raw.json
           generate_release_notes: true
           fail_on_unmatched_files: true
           overwrite_files: true
@@ -853,6 +1133,11 @@ jobs:
           echo "### 📋 Chain Specs" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Development chain spec generated" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Staging chain spec generated" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            echo "- 🏭 **Production chain spec generated** (Release only)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- ⏭️ Production chain spec (Release builds only)" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📦 Helm Chart" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Chart packaged and published" >> $GITHUB_STEP_SUMMARY
@@ -863,10 +1148,31 @@ jobs:
           echo "- ✅ Chainspec SHA-256 computed" >> $GITHUB_STEP_SUMMARY
           echo "- Staging: \`${{ steps.specsha.outputs.staging_sha }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- Development: \`${{ steps.specsha.outputs.dev_sha }}\`" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            echo "- Production: \`${{ steps.specsha.outputs.production_sha }}\`" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📦 Artifacts" >> $GITHUB_STEP_SUMMARY
           echo "- 🐳 **fennel-node-image-info**: Docker image metadata and build info" >> $GITHUB_STEP_SUMMARY
           echo "- ⚓ **fennel-helm-chart**: Packaged Helm chart (\`.tgz\`)" >> $GITHUB_STEP_SUMMARY
-          echo "- 🔗 **fennel-chainspecs**: Development and staging chainspecs (JSON + raw)" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            echo "- 🔗 **fennel-chainspecs**: Development, staging, and **production** chainspecs (JSON + raw)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- 🔗 **fennel-chainspecs**: Development and staging chainspecs (JSON + raw)" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            echo "### 🏭 Production Release Information" >> $GITHUB_STEP_SUMMARY
+            echo "- **Release Tag**: \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "- **Production Chainspec**: \`chainspecs/production/production-raw.json\`" >> $GITHUB_STEP_SUMMARY
+            echo "- **Chain Type**: Live (Production)" >> $GITHUB_STEP_SUMMARY
+            echo "- **Bootnode Architecture**: External-only (Parity best practice)" >> $GITHUB_STEP_SUMMARY
+            echo "- **Key Management**: Placeholder keys (Replace with Vault-managed keys for deployment)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️ **Important for Production Deployment**:" >> $GITHUB_STEP_SUMMARY
+            echo "- Production chainspec contains placeholder validator keys" >> $GITHUB_STEP_SUMMARY
+            echo "- Real validator and bootnode keys are managed via HashiCorp Vault" >> $GITHUB_STEP_SUMMARY
+            echo "- Use offline-generated keys for production security" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "🔍 **View artifacts**: Go to the [Actions tab](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for this workflow run." >> $GITHUB_STEP_SUMMARY
