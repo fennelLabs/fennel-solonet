@@ -48,6 +48,7 @@ sp-consensus-aura = { features = ["serde"], workspace = true }
 sp-consensus-grandpa = { features = ["serde"], workspace = true }
 sp-core = { features = ["serde"], workspace = true }
 sp-genesis-builder.workspace = true
+hex = { version = "0.4", default-features = false, features = ["alloc"] }
 sp-inherents.workspace = true
 sp-io = { version = "40.0.0", default-features = false }
 sp-keyring.workspace = true
