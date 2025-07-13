@@ -210,15 +210,6 @@ pub fn staging_config_genesis() -> Value {
 /// Private keys are managed separately via Vault at runtime.
 /// 
 /// This function is only available when all required environment variables are set at compile time.
-#[cfg(all(
-	env = "SUDO_SS58",
-	env = "VAL1_AURA_PUB", 
-	env = "VAL1_GRANDPA_PUB",
-	env = "VAL1_STASH_SS58",
-	env = "VAL2_AURA_PUB",
-	env = "VAL2_GRANDPA_PUB", 
-	env = "VAL2_STASH_SS58"
-))]
 pub fn production_config_genesis() -> Value {
 	// Parse production validator keys from environment variables
 	let val1_aura = parse_aura_public_key(env!("VAL1_AURA_PUB"));
@@ -252,16 +243,20 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 		sp_genesis_builder::DEV_RUNTIME_PRESET => development_config_genesis(),
 		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => local_config_genesis(),
 		STAGING_RUNTIME_PRESET => staging_config_genesis(),
-		#[cfg(all(
-			env = "SUDO_SS58",
-			env = "VAL1_AURA_PUB", 
-			env = "VAL1_GRANDPA_PUB",
-			env = "VAL1_STASH_SS58",
-			env = "VAL2_AURA_PUB",
-			env = "VAL2_GRANDPA_PUB", 
-			env = "VAL2_STASH_SS58"
-		))]
-		PRODUCTION_RUNTIME_PRESET => production_config_genesis(),
+		PRODUCTION_RUNTIME_PRESET => {
+			// Only allow production preset if all environment variables are available
+			if option_env!("SUDO_SS58").is_some() &&
+				option_env!("VAL1_AURA_PUB").is_some() &&
+				option_env!("VAL1_GRANDPA_PUB").is_some() &&
+				option_env!("VAL1_STASH_SS58").is_some() &&
+				option_env!("VAL2_AURA_PUB").is_some() &&
+				option_env!("VAL2_GRANDPA_PUB").is_some() &&
+				option_env!("VAL2_STASH_SS58").is_some() {
+				production_config_genesis()
+			} else {
+				return None;
+			}
+		},
 		_ => return None,
 	};
 	Some(
@@ -280,16 +275,16 @@ pub fn preset_names() -> Vec<PresetId> {
 	];
 	
 	// Only include production preset if all required environment variables are available
-	#[cfg(all(
-		env = "SUDO_SS58",
-		env = "VAL1_AURA_PUB", 
-		env = "VAL1_GRANDPA_PUB",
-		env = "VAL1_STASH_SS58",
-		env = "VAL2_AURA_PUB",
-		env = "VAL2_GRANDPA_PUB", 
-		env = "VAL2_STASH_SS58"
-	))]
-	presets.push(PresetId::from(PRODUCTION_RUNTIME_PRESET));
+	// Check if production environment variables are set at compile time
+	if option_env!("SUDO_SS58").is_some() &&
+		option_env!("VAL1_AURA_PUB").is_some() &&
+		option_env!("VAL1_GRANDPA_PUB").is_some() &&
+		option_env!("VAL1_STASH_SS58").is_some() &&
+		option_env!("VAL2_AURA_PUB").is_some() &&
+		option_env!("VAL2_GRANDPA_PUB").is_some() &&
+		option_env!("VAL2_STASH_SS58").is_some() {
+		presets.push(PresetId::from(PRODUCTION_RUNTIME_PRESET));
+	}
 	
 	presets
 }
