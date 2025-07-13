@@ -693,10 +693,37 @@ jobs:
       # ------------------------------------------------------------
       - name: Create production chain specs
         if: startsWith(github.ref, 'refs/tags/')
+        env:
+          PROD_SUDO_SS58: ${{ secrets.PROD_SUDO_SS58 }}
+          PROD_VAL1_AURA_PUB: ${{ secrets.PROD_VAL1_AURA_PUB }}
+          PROD_VAL1_GRANDPA_PUB: ${{ secrets.PROD_VAL1_GRANDPA_PUB }}
+          PROD_VAL1_STASH_SS58: ${{ secrets.PROD_VAL1_STASH_SS58 }}
+          PROD_VAL2_AURA_PUB: ${{ secrets.PROD_VAL2_AURA_PUB }}
+          PROD_VAL2_GRANDPA_PUB: ${{ secrets.PROD_VAL2_GRANDPA_PUB }}
+          PROD_VAL2_STASH_SS58: ${{ secrets.PROD_VAL2_STASH_SS58 }}
         run: |
           set -euo pipefail
           
           echo "🏭 Generating production chainspecs for release tag..."
+          
+          # Export environment variables for chain-spec-builder
+          export SUDO_SS58="${PROD_SUDO_SS58}"
+          export VAL1_AURA_PUB="${PROD_VAL1_AURA_PUB}"
+          export VAL1_GRANDPA_PUB="${PROD_VAL1_GRANDPA_PUB}"
+          export VAL1_STASH_SS58="${PROD_VAL1_STASH_SS58}"
+          export VAL2_AURA_PUB="${PROD_VAL2_AURA_PUB}"
+          export VAL2_GRANDPA_PUB="${PROD_VAL2_GRANDPA_PUB}"
+          export VAL2_STASH_SS58="${PROD_VAL2_STASH_SS58}"
+          
+          # Verify environment variables are set
+          echo "🔍 Verifying production environment variables:"
+          echo "SUDO_SS58: ${SUDO_SS58}"
+          echo "VAL1_AURA_PUB: ${VAL1_AURA_PUB}"
+          echo "VAL1_GRANDPA_PUB: ${VAL1_GRANDPA_PUB}"
+          echo "VAL1_STASH_SS58: ${VAL1_STASH_SS58}"
+          echo "VAL2_AURA_PUB: ${VAL2_AURA_PUB}"
+          echo "VAL2_GRANDPA_PUB: ${VAL2_GRANDPA_PUB}"
+          echo "VAL2_STASH_SS58: ${VAL2_STASH_SS58}"
           
           # Create production directory in chainspecs if it doesn't exist
           mkdir -p chainspecs/production
