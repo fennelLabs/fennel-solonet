@@ -261,6 +261,14 @@ jobs:
       # Public keys are safe to store in GitHub Secrets, private keys remain in Vault
       # ------------------------------------------------------------
       - name: Export production public keys from GitHub Secrets
+        env:
+          PROD_SUDO_SS58: ${{ secrets.PROD_SUDO_SS58 }}
+          PROD_VAL1_AURA_PUB: ${{ secrets.PROD_VAL1_AURA_PUB }}
+          PROD_VAL1_GRANDPA_PUB: ${{ secrets.PROD_VAL1_GRANDPA_PUB }}
+          PROD_VAL1_STASH_SS58: ${{ secrets.PROD_VAL1_STASH_SS58 }}
+          PROD_VAL2_AURA_PUB: ${{ secrets.PROD_VAL2_AURA_PUB }}
+          PROD_VAL2_GRANDPA_PUB: ${{ secrets.PROD_VAL2_GRANDPA_PUB }}
+          PROD_VAL2_STASH_SS58: ${{ secrets.PROD_VAL2_STASH_SS58 }}
         run: |
           set -euo pipefail
           echo "🔐 Setting up production environment variables from GitHub Secrets..."
@@ -276,14 +284,14 @@ jobs:
             
             echo "🔑 Exporting production public keys from GitHub Secrets..."
             
-            # Export production keys from GitHub Secrets
-            export SUDO_SS58="${{ secrets.PROD_SUDO_SS58 }}"
-            export VAL1_AURA_PUB="${{ secrets.PROD_VAL1_AURA_PUB }}"
-            export VAL1_GRANDPA_PUB="${{ secrets.PROD_VAL1_GRANDPA_PUB }}"
-            export VAL1_STASH_SS58="${{ secrets.PROD_VAL1_STASH_SS58 }}"
-            export VAL2_AURA_PUB="${{ secrets.PROD_VAL2_AURA_PUB }}"
-            export VAL2_GRANDPA_PUB="${{ secrets.PROD_VAL2_GRANDPA_PUB }}"
-            export VAL2_STASH_SS58="${{ secrets.PROD_VAL2_STASH_SS58 }}"
+            # Export production keys from GitHub Secrets (now available as env vars)
+            export SUDO_SS58="${PROD_SUDO_SS58}"
+            export VAL1_AURA_PUB="${PROD_VAL1_AURA_PUB}"
+            export VAL1_GRANDPA_PUB="${PROD_VAL1_GRANDPA_PUB}"
+            export VAL1_STASH_SS58="${PROD_VAL1_STASH_SS58}"
+            export VAL2_AURA_PUB="${PROD_VAL2_AURA_PUB}"
+            export VAL2_GRANDPA_PUB="${PROD_VAL2_GRANDPA_PUB}"
+            export VAL2_STASH_SS58="${PROD_VAL2_STASH_SS58}"
             
             # Verify all production variables are set (prevent empty values)
             for var in SUDO_SS58 VAL1_AURA_PUB VAL1_GRANDPA_PUB VAL1_STASH_SS58 VAL2_AURA_PUB VAL2_GRANDPA_PUB VAL2_STASH_SS58; do
