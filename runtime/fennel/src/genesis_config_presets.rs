@@ -212,15 +212,30 @@ pub fn staging_config_genesis() -> Value {
 /// This function is only available when all required environment variables are set at compile time.
 pub fn production_config_genesis() -> Value {
 	// Parse production validator keys from environment variables
-	let val1_aura = parse_aura_public_key(env!("VAL1_AURA_PUB"));
-	let val1_grandpa = parse_grandpa_public_key(env!("VAL1_GRANDPA_PUB"));
-	let val2_aura = parse_aura_public_key(env!("VAL2_AURA_PUB"));
-	let val2_grandpa = parse_grandpa_public_key(env!("VAL2_GRANDPA_PUB"));
+	// Use option_env! to handle cases where variables might not be set
+	let val1_aura = parse_aura_public_key(
+		option_env!("VAL1_AURA_PUB").expect("VAL1_AURA_PUB environment variable required for production preset")
+	);
+	let val1_grandpa = parse_grandpa_public_key(
+		option_env!("VAL1_GRANDPA_PUB").expect("VAL1_GRANDPA_PUB environment variable required for production preset")
+	);
+	let val2_aura = parse_aura_public_key(
+		option_env!("VAL2_AURA_PUB").expect("VAL2_AURA_PUB environment variable required for production preset")
+	);
+	let val2_grandpa = parse_grandpa_public_key(
+		option_env!("VAL2_GRANDPA_PUB").expect("VAL2_GRANDPA_PUB environment variable required for production preset")
+	);
 	
 	// Parse production account IDs from environment variables
-	let sudo_account = parse_account_id(env!("SUDO_SS58"));
-	let val1_stash = parse_account_id(env!("VAL1_STASH_SS58"));
-	let val2_stash = parse_account_id(env!("VAL2_STASH_SS58"));
+	let sudo_account = parse_account_id(
+		option_env!("SUDO_SS58").expect("SUDO_SS58 environment variable required for production preset")
+	);
+	let val1_stash = parse_account_id(
+		option_env!("VAL1_STASH_SS58").expect("VAL1_STASH_SS58 environment variable required for production preset")
+	);
+	let val2_stash = parse_account_id(
+		option_env!("VAL2_STASH_SS58").expect("VAL2_STASH_SS58 environment variable required for production preset")
+	);
 	
 	production_genesis(
 		// 1) Authorities: Production validator session keys from environment
