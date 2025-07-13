@@ -1,7 +1,7 @@
 {
   "bootNodes": [
-    "/dns4/bootnode1.fennel.network/tcp/30333/p2p/12D3KooWS84f71ufMQRsm9YWynfK5Zxa6iSooStJECnAT3RBVVxz",
-    "/dns4/bootnode2.fennel.network/tcp/30333/p2p/12D3KooWLWzcGVuLycfL1W83yc9S4UmVJ8qBd4Rk5mS6RJ4Bh7Su"
+    "/dns4/bootnode1.fennel.network/tcp/30333/p2p/12D3KooWFRgPPfukBwCKcw5BXdKwLwj15tHgEYpHyNdqownMTJ3d",
+    "/dns4/bootnode2.fennel.network/tcp/30333/p2p/12D3KooWHVkUjgF8zLY4Y8Cmf9kiJQE9THRkhovJPreHAqWjSNzH"
   ],
   "chainType": "Live",
   "codeSubstitutes": {},
