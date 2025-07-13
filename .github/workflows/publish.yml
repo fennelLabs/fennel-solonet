@@ -177,27 +177,27 @@ jobs:
         uses: docker/setup-buildx-action@v3
       
       # ------------------------------------------------------------
-      # SECURITY: Derive peer IDs from GitHub secrets
+      # SECURITY: Derive peer IDs from GitHub secrets using subkey from ci-unified
       # Private keys are decoded temporarily in memory, never logged
+      # Uses subkey inspect-node-key from paritytech/ci-unified to avoid version skew
       # ------------------------------------------------------------
       - name: Derive bootnode peer IDs from secrets
         run: |
           set -euo pipefail
-          echo "🔐 Deriving bootnode peer IDs from GitHub secrets..."
+          echo "🔐 Deriving bootnode peer IDs from GitHub secrets using subkey from ci-unified..."
           
-          # Install polkadot binary from official releases (most reliable)
-          echo "📥 Installing polkadot binary..."
-          POLKADOT_VERSION="v1.9.0"
-          wget -q "https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-${POLKADOT_VERSION}/polkadot" -O polkadot
-          chmod +x polkadot
+          # Use paritytech/ci-unified container which has subkey from the same SDK version
+          # This avoids version skew between polkadot CLI and runtime compilation
+          echo "📦 Using subkey from paritytech/ci-unified container (SDK version compatible with srtool 1.84)"
           
-          # Verify installation
-          ./polkadot --version
-          
-          # Helper: derive peer-id from a key file using polkadot
+          # Helper: derive peer-id from a key file using subkey from ci-unified
           # Parse only last line (PeerID) to avoid logging sensitive data  
           derive_peer () {
-            ./polkadot key inspect-node-key --file "$1" 2>/dev/null | tail -1
+            docker run --rm \
+              -v "$(pwd)":/workspace \
+              --workdir /workspace \
+              paritytech/ci-unified:latest \
+              subkey inspect-node-key --file "$1" 2>/dev/null | tail -1
           }
           
           # Decode secrets to tmpfs (runner's /tmp is already tmpfs), derive IDs
@@ -228,7 +228,8 @@ jobs:
           echo "BOOTNODE2_PEER_ID=$PEER2" >> $GITHUB_ENV
           
           # Log success (peer IDs are masked)
-          echo "✅ Successfully derived peer IDs from secrets using official Parity container"
+          echo "✅ Successfully derived peer IDs from secrets using subkey from paritytech/ci-unified"
+          echo "🔧 SDK version compatibility: subkey from ci-unified matches srtool 1.84 SDK version"
           echo "🌐 Using external-only bootnode architecture (following Parity best practices)"
           echo "📋 Bootnode configuration: [MASKED - using derived peer IDs]"
       
@@ -1089,6 +1090,47 @@ jobs:
           helm package Charts/fennel-node --destination release
           echo "📦 Packaged chart:"
           ls -la release/
+
+      - name: Verify release files exist
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          echo "🔍 Verifying all expected release files exist..."
+          
+          # Check Helm chart
+          echo "📦 Helm chart files:"
+          ls -la release/ || echo "❌ No release directory or files found"
+          
+          # Check artifacts
+          echo "📋 Artifact files:"
+          ls -la ./artifacts/ || echo "❌ No artifacts directory found"
+          
+          # Check chainspecs
+          echo "🔗 Development chainspecs:"
+          ls -la chainspecs/development/ || echo "❌ No development chainspecs directory found"
+          
+          echo "🔗 Staging chainspecs:"
+          ls -la chainspecs/staging/ || echo "❌ No staging chainspecs directory found"
+          
+          echo "🔗 Production chainspecs:"
+          ls -la chainspecs/production/ || echo "❌ No production chainspecs directory found"
+          
+          # Verify specific files
+          echo "✅ Checking specific files:"
+          for file in \
+            "release/*.tgz" \
+            "./artifacts/image-info.txt" \
+            "chainspecs/development/development.json" \
+            "chainspecs/development/development-raw.json" \
+            "chainspecs/staging/staging-chainspec.json" \
+            "chainspecs/staging/staging-raw.json" \
+            "chainspecs/production/production-chainspec.json" \
+            "chainspecs/production/production-raw.json"; do
+            if ls $file 1> /dev/null 2>&1; then
+              echo "  ✅ $file exists"
+            else
+              echo "  ❌ $file MISSING"
+            fi
+          done
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
