@@ -568,10 +568,10 @@ jobs:
             - Bootnode 1: $BOOTNODE1_PEER_ID
             - Bootnode 2: $BOOTNODE2_PEER_ID"
             
-            # Push the changes back to the repository
-            git push origin ${GITHUB_REF#refs/heads/}
+            # Push the changes back to the repository (always push to main branch)
+            git push origin main
             
-            echo "✅ Development chainspecs committed and pushed to repository on branch ${GITHUB_REF#refs/heads/}"
+            echo "✅ Development chainspecs committed and pushed to repository"
           fi
 
       - name: Create staging chain specs
@@ -697,10 +697,10 @@ jobs:
             - Bootnode 1: $BOOTNODE1_PEER_ID
             - Bootnode 2: $BOOTNODE2_PEER_ID"
             
-            # Push the changes back to the repository
-            git push origin ${GITHUB_REF#refs/heads/}
+            # Push the changes back to the repository (always push to main branch)
+            git push origin main
             
-            echo "✅ Staging chainspecs committed and pushed to repository on branch ${GITHUB_REF#refs/heads/}"
+            echo "✅ Staging chainspecs committed and pushed to repository"
           fi
 
       # ------------------------------------------------------------
@@ -840,8 +840,8 @@ jobs:
             - Real validator and bootnode keys managed via HashiCorp Vault
             - Production deployment uses offline-generated keys"
             
-            # Push the changes back to the repository
-            git push origin ${GITHUB_REF#refs/heads/}
+            # Push the changes back to the repository (always push to main branch)
+            git push origin main
             
             echo "✅ Production chainspecs committed and pushed to repository"
           fi
