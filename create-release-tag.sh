@@ -116,7 +116,7 @@ fi
 
 # Show tag info
 print_status "Tag information:"
-git show --no-patch --format="  Commit: %H%n  Author: %an <%ae>%n  Date: %ai%n  Message: %s" "$TAG_NAME"
+git show --no-patch --format="  Commit: %H%n  Author: %an <%ae>%n  Date: %ai%n  Message: %s" "$TAG_NAME" | cat
 
 echo ""
 print_success "Release tag $TAG_NAME created successfully!"
