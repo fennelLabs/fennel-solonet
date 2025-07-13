@@ -284,6 +284,11 @@ jobs:
             
             echo "🔑 Exporting production public keys from GitHub Secrets..."
             
+            # Debug: Check if secrets are available
+            echo "🔍 Debugging secret availability..."
+            echo "PROD_SUDO_SS58 length: ${#PROD_SUDO_SS58}"
+            echo "PROD_SUDO_SS58 value: '${PROD_SUDO_SS58}'"
+            
             # Export production keys from GitHub Secrets (now available as env vars)
             export SUDO_SS58="${PROD_SUDO_SS58}"
             export VAL1_AURA_PUB="${PROD_VAL1_AURA_PUB}"
