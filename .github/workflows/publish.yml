@@ -256,68 +256,47 @@ jobs:
             type=sha,format=long
       
       # ------------------------------------------------------------
-      # PRODUCTION KEY EXPORT (following Vault/CI/CD methodology)
+      # PRODUCTION KEY EXPORT (using GitHub Secrets)
       # Export public keys for production builds - MANDATORY for releases
-      # Following the field-tested methodology from MOSTUPTODATEMETHODOLOGYEURKEA.md
+      # Public keys are safe to store in GitHub Secrets, private keys remain in Vault
       # ------------------------------------------------------------
-      - name: Export production public keys from Vault/Secrets
+      - name: Export production public keys from GitHub Secrets
         run: |
           set -euo pipefail
-          echo "🔐 Setting up production environment variables following Vault/CI/CD methodology..."
+          echo "🔐 Setting up production environment variables from GitHub Secrets..."
           
-          # For production releases, use real keys from GitHub Secrets (Vault integration)
+          # For production releases, use real keys from GitHub Secrets
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
-            echo "🏭 Production release detected - exporting production keys from Vault"
-            
-            # Install Vault CLI and jq for public key access and OIDC token parsing
-            echo "📦 Installing Vault CLI and jq..."
-            wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
-            echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
-            sudo apt update && sudo apt install vault jq
-            
-            # Configure Vault connection for public key access
-            export VAULT_ADDR="${{ secrets.VAULT_ADDR }}"
-            export VAULT_TOKEN="${{ secrets.VAULT_CI_TOKEN }}"
-            
-            echo "🔐 Authenticating to Vault for public key access..."
-            
-            # Verify Vault connection
-            if ! vault status; then
-              echo "❌ ERROR: Cannot connect to Vault at $VAULT_ADDR"
-              echo "🔧 Check VAULT_ADDR and VAULT_CI_TOKEN secrets"
-              echo "💡 If you see 'non-printable characters' error, run scripts/fix-vault-ci-token.sh"
-              exit 1
-            fi
-            
-            echo "✅ Successfully authenticated to Vault for public key access"
+            echo "🏭 Production release detected - exporting production keys from GitHub Secrets"
             
             # MANDATORY production keys - build will fail if any are missing
-            # Following the methodology: GitHub Actions pulls public values from Vault,
+            # GitHub Actions pulls public values from GitHub Secrets,
             # exports them as environment variables, and Rust compiler substitutes them
             # into the preset at build time via env!() macros
             
-            echo "🔑 Fetching production public keys from Vault..."
+            echo "🔑 Exporting production public keys from GitHub Secrets..."
             
-            # Fetch keys from Vault KV store
-            export SUDO_SS58=$(vault kv get -field=sudo_ss58 kv/fennel-production/ci-cd/sudo 2>/dev/null || echo "")
-            export VAL1_AURA_PUB=$(vault kv get -field=aura_public kv/fennel-production/ci-cd/validator-1 2>/dev/null || echo "")
-            export VAL1_GRANDPA_PUB=$(vault kv get -field=grandpa_public kv/fennel-production/ci-cd/validator-1 2>/dev/null || echo "")
-            export VAL1_STASH_SS58=$(vault kv get -field=stash_ss58 kv/fennel-production/ci-cd/validator-1 2>/dev/null || echo "")
-            export VAL2_AURA_PUB=$(vault kv get -field=aura_public kv/fennel-production/ci-cd/validator-2 2>/dev/null || echo "")
-            export VAL2_GRANDPA_PUB=$(vault kv get -field=grandpa_public kv/fennel-production/ci-cd/validator-2 2>/dev/null || echo "")
-            export VAL2_STASH_SS58=$(vault kv get -field=stash_ss58 kv/fennel-production/ci-cd/validator-2 2>/dev/null || echo "")
+            # Export production keys from GitHub Secrets
+            export SUDO_SS58="${{ secrets.PROD_SUDO_SS58 }}"
+            export VAL1_AURA_PUB="${{ secrets.PROD_VAL1_AURA_PUB }}"
+            export VAL1_GRANDPA_PUB="${{ secrets.PROD_VAL1_GRANDPA_PUB }}"
+            export VAL1_STASH_SS58="${{ secrets.PROD_VAL1_STASH_SS58 }}"
+            export VAL2_AURA_PUB="${{ secrets.PROD_VAL2_AURA_PUB }}"
+            export VAL2_GRANDPA_PUB="${{ secrets.PROD_VAL2_GRANDPA_PUB }}"
+            export VAL2_STASH_SS58="${{ secrets.PROD_VAL2_STASH_SS58 }}"
             
             # Verify all production variables are set (prevent empty values)
             for var in SUDO_SS58 VAL1_AURA_PUB VAL1_GRANDPA_PUB VAL1_STASH_SS58 VAL2_AURA_PUB VAL2_GRANDPA_PUB VAL2_STASH_SS58; do
               if [ -z "${!var:-}" ]; then
-                echo "❌ ERROR: Production variable $var is empty or missing from Vault!"
-                echo "🔧 Check Vault KV store at kv/fennel-production/ci-cd/"
+                echo "❌ ERROR: Production variable $var is empty or missing from GitHub Secrets!"
+                echo "🔧 Add PROD_* secrets to GitHub repository settings"
+                echo "💡 Use extract-github-secrets.sh script to get the required values"
                 exit 1
               fi
             done
             
-            echo "✅ All 7 production environment variables fetched from Vault and validated"
-            echo "🔒 Using production public keys from Vault (private keys remain secure in Vault)"
+            echo "✅ All 7 production environment variables exported from GitHub Secrets and validated"
+            echo "🔒 Using production public keys from GitHub Secrets (private keys remain secure in Vault)"
           else
             echo "🧪 Development/staging build - production variables not required"
             echo "📋 Development/staging presets use Alice/Bob hardcoded keys from sp_keyring"
@@ -339,7 +318,7 @@ jobs:
           # For production releases: pass mandatory environment variables
           # For development/staging: build without production env vars (uses Alice/Bob presets)
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
-            echo "🏭 Building production runtime with Vault-sourced public keys"
+            echo "🏭 Building production runtime with GitHub Secrets-sourced public keys"
             
             # Production build with mandatory environment variables
             # These MUST be set or build.rs will fail with clear error message
