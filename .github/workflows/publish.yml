@@ -177,61 +177,43 @@ jobs:
         uses: docker/setup-buildx-action@v3
       
       # ------------------------------------------------------------
-      # SECURITY: Derive peer IDs from GitHub secrets using subkey from ci-unified
-      # Private keys are decoded temporarily in memory, never logged
-      # Uses subkey inspect-node-key from paritytech/ci-unified to avoid version skew
+      # BOOTNODE PEER ID CONFIGURATION
+      # Use public bootnode peer IDs from GitHub secrets
       # ------------------------------------------------------------
-      - name: Derive bootnode peer IDs from secrets
+      - name: Configure bootnode peer IDs
         run: |
           set -euo pipefail
-          echo "🔐 Deriving bootnode peer IDs from GitHub secrets using subkey from ci-unified..."
+          echo "🔐 Configuring bootnode peer IDs from GitHub secrets..."
           
-          # Use paritytech/ci-unified container which has subkey from the same SDK version
-          # This avoids version skew between polkadot CLI and runtime compilation
-          echo "📦 Using subkey from paritytech/ci-unified container (SDK version compatible with srtool 1.84)"
+          # Get public bootnode peer IDs from GitHub secrets
+          PEER1="${{ secrets.BOOTNODE1_PEER_ID }}"
+          PEER2="${{ secrets.BOOTNODE2_PEER_ID }}"
           
-          # Helper: derive peer-id from a key file using subkey from ci-unified
-          # Parse only last line (PeerID) to avoid logging sensitive data  
-          derive_peer () {
-            docker run --rm \
-              -v "$(pwd)":/workspace \
-              --workdir /workspace \
-              paritytech/ci-unified:latest \
-              subkey inspect-node-key --file "$1" 2>/dev/null | tail -1
-          }
+          # Verify peer IDs are set
+          if [ -z "$PEER1" ] || [ -z "$PEER2" ]; then
+            echo "❌ ERROR: Bootnode peer IDs are missing from GitHub secrets!"
+            echo "🔧 Add BOOTNODE1_PEER_ID and BOOTNODE2_PEER_ID to GitHub repository settings"
+            echo "💡 These are public peer IDs (not private keys) - safe to store in GitHub Secrets"
+            exit 1
+          fi
           
-          # Decode secrets to tmpfs (runner's /tmp is already tmpfs), derive IDs
-          BOOT1=$(mktemp)
-          BOOT2=$(mktemp)
-          trap 'rm -f "$BOOT1" "$BOOT2"' EXIT          # always wipe
-          
-          echo "${{ secrets.BOOTNODE1_KEY_B64 }}" | base64 -d > "$BOOT1"
-          echo "${{ secrets.BOOTNODE2_KEY_B64 }}" | base64 -d > "$BOOT2"
-          
-          PEER1="$(derive_peer "$BOOT1")"
-          PEER2="$(derive_peer "$BOOT2")"
-          
-          # Mask *right now* so nothing else can leak it
-          echo "::add-mask::$PEER1"
-          echo "::add-mask::$PEER2"
-          
-          # Build JSON array (still invisible in logs because masked)
+          # Build JSON array for bootnodes
           BOOTNODES_JSON=$(jq -cn --arg id1 "$PEER1" --arg id2 "$PEER2" '
             [
               "/dns4/bootnode1.fennel.network/tcp/30333/p2p/\($id1)",
               "/dns4/bootnode2.fennel.network/tcp/30333/p2p/\($id2)"
             ]')
           
-          # Set environment variables for subsequent steps (use base64 for safety)
-          echo "EXTERNAL_BOOTNODES_B64=$(printf %s "$BOOTNODES_JSON" | base64 -w0)" >> $GITHUB_ENV
+          # Set environment variables for subsequent steps
+          echo "EXTERNAL_BOOTNODES_JSON=$BOOTNODES_JSON" >> $GITHUB_ENV
           echo "BOOTNODE1_PEER_ID=$PEER1" >> $GITHUB_ENV
           echo "BOOTNODE2_PEER_ID=$PEER2" >> $GITHUB_ENV
           
-          # Log success (peer IDs are masked)
-          echo "✅ Successfully derived peer IDs from secrets using subkey from paritytech/ci-unified"
-          echo "🔧 SDK version compatibility: subkey from ci-unified matches srtool 1.84 SDK version"
+          # Log success
+          echo "✅ Successfully configured bootnode peer IDs from GitHub secrets"
           echo "🌐 Using external-only bootnode architecture (following Parity best practices)"
-          echo "📋 Bootnode configuration: [MASKED - using derived peer IDs]"
+          echo "🌐 Bootnode 1 Peer ID: $PEER1"
+          echo "🌐 Bootnode 2 Peer ID: $PEER2"
       
       # Uses the `docker/login-action` action to log in to the Container registry registry using the account and password that will publish the packages. Once published, the packages are scoped to the account defined here.
       - name: Log in to the Container registry
@@ -317,6 +299,8 @@ jobs:
             echo "⚠️  Production environment variables will NOT be set for non-release builds"
             echo "🛡️  This is intentional - development uses different preset logic"
           fi
+
+
 
       # ------------------------------------------------------------
       # Build the runtime deterministically with srtool and capture
@@ -505,7 +489,7 @@ jobs:
         run: |
           set -euo pipefail
           
-          echo "🔗 Injecting dynamically derived bootnodes into development chain spec..."
+          echo "🔗 Injecting bootnode peer IDs into development chain spec..."
           
           TARGET="development"
           SPEC="chainspecs/${TARGET}/development.json"
@@ -513,14 +497,14 @@ jobs:
           # Use external-only bootnodes (Parity's recommended approach)
           # Both internal and external nodes use the same public endpoints
           
-          # Decode bootnodes from base64 (safe transport through GitHub Actions env)
-          EXTERNAL_BOOTNODES=$(echo "$EXTERNAL_BOOTNODES_B64" | base64 -d)
-          echo "📋 Using external-only bootnode architecture: [MASKED - derived peer IDs]"
+          # Use bootnodes JSON directly (peer IDs are public and safe to log)
+          EXTERNAL_BOOTNODES="$EXTERNAL_BOOTNODES_JSON"
+          echo "📋 Using external-only bootnode architecture:"
           
           # Only update if there are changes (idempotent)
           CURRENT_BOOTNODES=$(jq -c '.bootNodes // []' "$SPEC")
           if [ "$CURRENT_BOOTNODES" != "$EXTERNAL_BOOTNODES" ]; then
-            echo "📝 Updating bootNodes in ${TARGET} chain spec with derived peer IDs and chain metadata..."
+            echo "📝 Updating bootNodes in ${TARGET} chain spec with peer IDs and chain metadata..."
             jq --argjson arr "$EXTERNAL_BOOTNODES" \
                --arg ss58 "42" \
                '.bootNodes = $arr
@@ -532,13 +516,13 @@ jobs:
                   }' "$SPEC" > tmp.json && mv tmp.json "$SPEC"
             
             # Regenerate raw spec with bootnodes included
-            echo "🔄 Regenerating raw ${TARGET} spec with derived bootnodes..."
+            echo "🔄 Regenerating raw ${TARGET} spec with bootnodes..."
             chain-spec-builder \
               -c "chainspecs/${TARGET}/development-raw.json" \
               convert-to-raw \
               "chainspecs/${TARGET}/development.json"
             
-            echo "✅ Bootnodes updated successfully with derived peer IDs"
+            echo "✅ Bootnodes updated successfully with peer IDs"
           else
             echo "✅ No changes needed - bootnodes already up to date"
           fi
@@ -561,9 +545,9 @@ jobs:
             echo "No changes to development chainspecs"
           else
             # Commit the changes with [ci skip] to prevent retriggering
-            git commit -m "Update development chainspecs with derived bootnode peer IDs [ci skip]
+            git commit -m "Update development chainspecs with bootnode peer IDs [ci skip]
 
-            - Peer IDs derived from GitHub secrets (BOOTNODE1_KEY_B64, BOOTNODE2_KEY_B64)
+            - Peer IDs from GitHub secrets (BOOTNODE1_PEER_ID, BOOTNODE2_PEER_ID)
             - Using external-only bootnode architecture (Parity best practice)
             - Bootnode 1: $BOOTNODE1_PEER_ID
             - Bootnode 2: $BOOTNODE2_PEER_ID"
@@ -634,7 +618,7 @@ jobs:
         run: |
           set -euo pipefail
           
-          echo "🔗 Injecting dynamically derived bootnodes into staging chain spec..."
+          echo "🔗 Injecting bootnode peer IDs into staging chain spec..."
           
           TARGET="staging"
           SPEC="chainspecs/${TARGET}/staging-chainspec.json"
@@ -642,14 +626,14 @@ jobs:
           # Use external-only bootnodes (Parity's recommended approach)
           # Both internal and external nodes use the same public endpoints
           
-          # Decode bootnodes from base64 (safe transport through GitHub Actions env)
-          EXTERNAL_BOOTNODES=$(echo "$EXTERNAL_BOOTNODES_B64" | base64 -d)
-          echo "📋 Using external-only bootnode architecture: [MASKED - derived peer IDs]"
+          # Use bootnodes JSON directly (peer IDs are public and safe to log)
+          EXTERNAL_BOOTNODES="$EXTERNAL_BOOTNODES_JSON"
+          echo "📋 Using external-only bootnode architecture:"
           
           # Only update if there are changes (idempotent)
           CURRENT_BOOTNODES=$(jq -c '.bootNodes // []' "$SPEC")
           if [ "$CURRENT_BOOTNODES" != "$EXTERNAL_BOOTNODES" ]; then
-            echo "📝 Updating bootNodes in ${TARGET} chain spec with derived peer IDs and chain metadata..."
+            echo "📝 Updating bootNodes in ${TARGET} chain spec with peer IDs and chain metadata..."
             jq --argjson arr "$EXTERNAL_BOOTNODES" \
                --arg ss58 "42" \
                '.bootNodes = $arr
@@ -661,13 +645,13 @@ jobs:
                   }' "$SPEC" > tmp.json && mv tmp.json "$SPEC"
             
             # Regenerate raw spec with bootnodes included
-            echo "🔄 Regenerating raw ${TARGET} spec with derived bootnodes..."
+            echo "🔄 Regenerating raw ${TARGET} spec with bootnodes..."
             chain-spec-builder \
               -c "chainspecs/${TARGET}/staging-raw.json" \
               convert-to-raw \
               "chainspecs/${TARGET}/staging-chainspec.json"
             
-            echo "✅ Bootnodes updated successfully with derived peer IDs"
+            echo "✅ Bootnodes updated successfully with peer IDs"
           else
             echo "✅ No changes needed - bootnodes already up to date"
           fi
@@ -690,9 +674,9 @@ jobs:
             echo "No changes to staging chainspecs"
           else
             # Commit the changes with [ci skip] to prevent retriggering
-            git commit -m "Update staging chainspecs with derived bootnode peer IDs [ci skip]
+            git commit -m "Update staging chainspecs with bootnode peer IDs [ci skip]
 
-            - Peer IDs derived from GitHub secrets (BOOTNODE1_KEY_B64, BOOTNODE2_KEY_B64)
+            - Peer IDs from GitHub secrets (BOOTNODE1_PEER_ID, BOOTNODE2_PEER_ID)
             - Using external-only bootnode architecture (Parity best practice)
             - Bootnode 1: $BOOTNODE1_PEER_ID
             - Bootnode 2: $BOOTNODE2_PEER_ID"
@@ -767,7 +751,7 @@ jobs:
         run: |
           set -euo pipefail
           
-          echo "🔗 Injecting dynamically derived bootnodes into production chain spec..."
+          echo "🔗 Injecting bootnode peer IDs into production chain spec..."
           
           TARGET="production"
           SPEC="chainspecs/${TARGET}/production-chainspec.json"
@@ -775,12 +759,12 @@ jobs:
           # Use external-only bootnodes (Parity's recommended approach)
           # Both internal and external nodes use the same public endpoints
           
-          # Decode bootnodes from base64 (safe transport through GitHub Actions env)
-          EXTERNAL_BOOTNODES=$(echo "$EXTERNAL_BOOTNODES_B64" | base64 -d)
-          echo "📋 Using external-only bootnode architecture: [MASKED - derived peer IDs]"
+          # Use bootnodes JSON directly (peer IDs are public and safe to log)
+          EXTERNAL_BOOTNODES="$EXTERNAL_BOOTNODES_JSON"
+          echo "📋 Using external-only bootnode architecture:"
           
           # Update chain spec with production-specific settings
-          echo "📝 Updating production chain spec with derived peer IDs and production settings..."
+          echo "📝 Updating production chain spec with peer IDs and production settings..."
           jq --argjson arr "$EXTERNAL_BOOTNODES" \
              --arg ss58 "42" \
              '.bootNodes = $arr
@@ -795,7 +779,7 @@ jobs:
                 }' "$SPEC" > tmp.json && mv tmp.json "$SPEC"
           
           # Regenerate raw spec with bootnodes included
-          echo "🔄 Regenerating raw production spec with derived bootnodes..."
+          echo "🔄 Regenerating raw production spec with bootnodes..."
           chain-spec-builder \
             -c "chainspecs/${TARGET}/production-raw.json" \
             convert-to-raw \
@@ -829,7 +813,7 @@ jobs:
             git commit -m "Add production chainspecs for release ${GITHUB_REF#refs/tags/} [ci skip]
 
             🏭 Production Release: ${GITHUB_REF#refs/tags/}
-            - Peer IDs derived from GitHub secrets (BOOTNODE1_KEY_B64, BOOTNODE2_KEY_B64)
+            - Peer IDs from GitHub secrets (BOOTNODE1_PEER_ID, BOOTNODE2_PEER_ID)
             - Using external-only bootnode architecture (Parity best practice)
             - Chain Type: Live (Production)
             - Bootnode 1: $BOOTNODE1_PEER_ID

@@ -132,3 +132,25 @@ echo "   • Build and push Docker image with digest"
 echo "   • Generate chainspecs with SHA-256 verification"
 echo "   • Package and publish Helm chart"
 echo "   • Create GitHub release with all artifacts"
+
+# Ask if user wants to push the tag immediately
+echo ""
+print_status "Would you like to push the tag now to trigger the production release?"
+read -p "Push tag $TAG_NAME to origin? (Y/n): " -n 1 -r
+echo
+if [[ $REPLY =~ ^[Nn]$ ]]; then
+    print_status "Tag push cancelled. You can push manually later with:"
+    echo "   git push origin $TAG_NAME"
+else
+    print_status "Pushing tag to origin..."
+    if git push origin "$TAG_NAME"; then
+        print_success "Tag pushed successfully!"
+        echo ""
+        print_success "🚀 Production release workflow triggered!"
+        echo "📊 Watch the build: https://github.com/CorruptedAesthetic/fennel-solonet/actions"
+        echo "📦 Release will be available at: https://github.com/CorruptedAesthetic/fennel-solonet/releases"
+    else
+        print_error "Failed to push tag. You can try manually:"
+        echo "   git push origin $TAG_NAME"
+    fi
+fi
