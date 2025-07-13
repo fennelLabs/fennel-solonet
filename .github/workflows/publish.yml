@@ -287,7 +287,7 @@ jobs:
             # Debug: Check if secrets are available
             echo "🔍 Debugging secret availability..."
             echo "PROD_SUDO_SS58 is set: ${PROD_SUDO_SS58+yes}"
-            echo "PROD_SUDO_SS58 length: ${#PROD_SUDO_SS58:-0}"
+            echo "PROD_SUDO_SS58 length: ${#PROD_SUDO_SS58}"
             echo "PROD_SUDO_SS58 value: '${PROD_SUDO_SS58:-EMPTY}'"
             
             # Export production keys from GitHub Secrets (now available as env vars)
