@@ -21,7 +21,6 @@ jobs:
     permissions:
       contents: write  # Changed from read to write to allow pushing commits
       packages: write
-      #
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -270,23 +269,27 @@ jobs:
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
             echo "🏭 Production release detected - exporting production keys from Vault"
             
-            # Install Vault CLI for public key access
-            echo "📦 Installing Vault CLI..."
+            # Install Vault CLI and jq for public key access and OIDC token parsing
+            echo "📦 Installing Vault CLI and jq..."
             wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
             echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
-            sudo apt update && sudo apt install vault
+            sudo apt update && sudo apt install vault jq
             
-            # Configure Vault connection
-            # TODO: Replace with proper production Vault endpoint and GitHub OIDC auth
-            export VAULT_ADDR="${{ secrets.VAULT_ADDR }}"  # e.g., https://vault.your-domain.com
-            export VAULT_TOKEN="${{ secrets.VAULT_CI_TOKEN }}"  # CI-specific read-only token
+            # Configure Vault connection for public key access
+            export VAULT_ADDR="${{ secrets.VAULT_ADDR }}"
+            export VAULT_TOKEN="${{ secrets.VAULT_CI_TOKEN }}"
+            
+            echo "🔐 Authenticating to Vault for public key access..."
             
             # Verify Vault connection
             if ! vault status; then
               echo "❌ ERROR: Cannot connect to Vault at $VAULT_ADDR"
               echo "🔧 Check VAULT_ADDR and VAULT_CI_TOKEN secrets"
+              echo "💡 If you see 'non-printable characters' error, run scripts/fix-vault-ci-token.sh"
               exit 1
             fi
+            
+            echo "✅ Successfully authenticated to Vault for public key access"
             
             # MANDATORY production keys - build will fail if any are missing
             # Following the methodology: GitHub Actions pulls public values from Vault,
