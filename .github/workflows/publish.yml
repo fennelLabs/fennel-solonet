@@ -324,6 +324,14 @@ jobs:
       # ------------------------------------------------------------
       - name: Build runtime with srtool & extract Wasm hash
         id: wasm
+        env:
+          PROD_SUDO_SS58: ${{ secrets.PROD_SUDO_SS58 }}
+          PROD_VAL1_AURA_PUB: ${{ secrets.PROD_VAL1_AURA_PUB }}
+          PROD_VAL1_GRANDPA_PUB: ${{ secrets.PROD_VAL1_GRANDPA_PUB }}
+          PROD_VAL1_STASH_SS58: ${{ secrets.PROD_VAL1_STASH_SS58 }}
+          PROD_VAL2_AURA_PUB: ${{ secrets.PROD_VAL2_AURA_PUB }}
+          PROD_VAL2_GRANDPA_PUB: ${{ secrets.PROD_VAL2_GRANDPA_PUB }}
+          PROD_VAL2_STASH_SS58: ${{ secrets.PROD_VAL2_STASH_SS58 }}
         run: |
           set -euo pipefail
           echo "🛠️  Running srtool to build compact runtime…"
@@ -340,13 +348,13 @@ jobs:
               -v "${PWD}":/build \
               -e RUNTIME_DIR=runtime/fennel \
               -e PACKAGE=fennel-node-runtime \
-              -e SUDO_SS58="${SUDO_SS58}" \
-              -e VAL1_AURA_PUB="${VAL1_AURA_PUB}" \
-              -e VAL1_GRANDPA_PUB="${VAL1_GRANDPA_PUB}" \
-              -e VAL1_STASH_SS58="${VAL1_STASH_SS58}" \
-              -e VAL2_AURA_PUB="${VAL2_AURA_PUB}" \
-              -e VAL2_GRANDPA_PUB="${VAL2_GRANDPA_PUB}" \
-              -e VAL2_STASH_SS58="${VAL2_STASH_SS58}" \
+              -e SUDO_SS58="${PROD_SUDO_SS58}" \
+              -e VAL1_AURA_PUB="${PROD_VAL1_AURA_PUB}" \
+              -e VAL1_GRANDPA_PUB="${PROD_VAL1_GRANDPA_PUB}" \
+              -e VAL1_STASH_SS58="${PROD_VAL1_STASH_SS58}" \
+              -e VAL2_AURA_PUB="${PROD_VAL2_AURA_PUB}" \
+              -e VAL2_GRANDPA_PUB="${PROD_VAL2_GRANDPA_PUB}" \
+              -e VAL2_STASH_SS58="${PROD_VAL2_STASH_SS58}" \
               --workdir /build \
               paritytech/srtool:1.84.1
           else
