@@ -326,6 +326,16 @@ jobs:
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
             echo "🏭 Building production runtime with GitHub Secrets-sourced public keys"
             
+            # Debug: Verify environment variables before passing to Docker
+            echo "🔍 Environment variables being passed to srtool:"
+            echo "SUDO_SS58 length: ${#PROD_SUDO_SS58}"
+            echo "VAL1_AURA_PUB length: ${#PROD_VAL1_AURA_PUB}"
+            echo "VAL1_GRANDPA_PUB length: ${#PROD_VAL1_GRANDPA_PUB}"
+            echo "VAL1_STASH_SS58 length: ${#PROD_VAL1_STASH_SS58}"
+            echo "VAL2_AURA_PUB length: ${#PROD_VAL2_AURA_PUB}"
+            echo "VAL2_GRANDPA_PUB length: ${#PROD_VAL2_GRANDPA_PUB}"
+            echo "VAL2_STASH_SS58 length: ${#PROD_VAL2_STASH_SS58}"
+            
             # Production build with mandatory environment variables
             # These MUST be set or build.rs will fail with clear error message
             docker run --rm \
@@ -727,6 +737,18 @@ jobs:
           
           # Create production directory in chainspecs if it doesn't exist
           mkdir -p chainspecs/production
+          
+          # Debug: Check available presets in the runtime
+          echo "🔍 Checking available presets in production runtime..."
+          env SUDO_SS58="${SUDO_SS58}" \
+              VAL1_AURA_PUB="${VAL1_AURA_PUB}" \
+              VAL1_GRANDPA_PUB="${VAL1_GRANDPA_PUB}" \
+              VAL1_STASH_SS58="${VAL1_STASH_SS58}" \
+              VAL2_AURA_PUB="${VAL2_AURA_PUB}" \
+              VAL2_GRANDPA_PUB="${VAL2_GRANDPA_PUB}" \
+              VAL2_STASH_SS58="${VAL2_STASH_SS58}" \
+          chain-spec-builder list-presets \
+            --runtime runtime/fennel/target/srtool/release/wbuild/fennel-node-runtime/fennel_node_runtime.compact.wasm || echo "Failed to list presets"
           
           # Generate production chain spec
           echo "Generating production chain spec..."
