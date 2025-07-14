@@ -730,6 +730,13 @@ jobs:
           
           # Generate production chain spec
           echo "Generating production chain spec..."
+          env SUDO_SS58="${SUDO_SS58}" \
+              VAL1_AURA_PUB="${VAL1_AURA_PUB}" \
+              VAL1_GRANDPA_PUB="${VAL1_GRANDPA_PUB}" \
+              VAL1_STASH_SS58="${VAL1_STASH_SS58}" \
+              VAL2_AURA_PUB="${VAL2_AURA_PUB}" \
+              VAL2_GRANDPA_PUB="${VAL2_GRANDPA_PUB}" \
+              VAL2_STASH_SS58="${VAL2_STASH_SS58}" \
           chain-spec-builder \
             -c chainspecs/production/production-chainspec.json \
             create \
@@ -790,11 +797,12 @@ jobs:
           EXTERNAL_BOOTNODES="$EXTERNAL_BOOTNODES_JSON"
           echo "📋 Using external-only bootnode architecture:"
           
-          # Update chain spec with production-specific settings
+          # Update chain spec with production-specific settings (preserve genesis)
           echo "📝 Updating production chain spec with peer IDs and production settings..."
           jq --argjson arr "$EXTERNAL_BOOTNODES" \
              --arg ss58 "42" \
-             '.bootNodes = $arr
+             '. as $original
+              | .bootNodes = $arr
               | .chainType = "Live"
               | .name = "Fennel Production Network"
               | .id = "fennel_production"
@@ -803,7 +811,10 @@ jobs:
                   "ss58Format": ($ss58|tonumber),
                   "tokenDecimals": 18,
                   "tokenSymbol": "FNL"
-                }' "$SPEC" > tmp.json && mv tmp.json "$SPEC"
+                }
+              | .genesis = $original.genesis
+              | .codeSubstitutes = $original.codeSubstitutes
+              | .telemetryEndpoints = $original.telemetryEndpoints' "$SPEC" > tmp.json && mv tmp.json "$SPEC"
           
           # Regenerate raw spec with bootnodes included
           echo "🔄 Regenerating raw production spec with bootnodes..."
