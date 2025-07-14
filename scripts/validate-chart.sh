@@ -11,7 +11,7 @@ echo ""
 echo "📋 Chart Information:"
 echo "===================="
 grep "^version:" Chart.yaml || true
-grep "version:" Chart.yaml | grep -v "^version:" | head -1 || true
+grep "^appVersion:" Chart.yaml || true
 
 echo ""
 echo "🔄 Updating dependencies..."
