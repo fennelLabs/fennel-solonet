@@ -385,6 +385,12 @@ jobs:
         with:
           toolchain: stable
 
+      - name: Install protobuf compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+          protoc --version
+
       - name: Cache cargo build artifacts
         uses: actions/cache@v4
         with:
