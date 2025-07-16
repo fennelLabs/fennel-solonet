@@ -379,18 +379,9 @@ jobs:
 
       # ------------------------------------------------------------
       # Build Fennel node binary from source (canonical Parity-style)
+      # Uses paritytech/ci-unified:latest - Parity's official CI image
+      # Contains all Rust toolchains, build dependencies, and tools
       # ------------------------------------------------------------
-      - name: Install Rust toolchain for node build
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: stable
-
-      - name: Install protobuf compiler
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y protobuf-compiler
-          protoc --version
-
       - name: Cache cargo build artifacts
         uses: actions/cache@v4
         with:
@@ -402,7 +393,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Build fennel node (release)
+      - name: Build fennel node using Parity CI Unified image
         id: build_node
         env:
           PROD_SUDO_SS58: ${{ secrets.PROD_SUDO_SS58 }}
@@ -414,7 +405,7 @@ jobs:
           PROD_VAL2_STASH_SS58: ${{ secrets.PROD_VAL2_STASH_SS58 }}
         run: |
           set -euo pipefail
-          echo "🔧 Building fennel node (release)..."
+          echo "🔧 Building fennel node using Parity CI Unified image..."
           
           # Export production environment variables for release builds
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
@@ -430,8 +421,32 @@ jobs:
             echo "🧪 Building development/staging node (no production env vars needed)"
           fi
           
-          cargo build --locked --release -p fennel-node
-          install -Dm0755 target/release/fennel-node dist/fennel-node
+          # Use Parity's CI Unified image for building (canonical Parity practice)
+          docker run --rm \
+            -v "${PWD}":/build \
+            -e SUDO_SS58="${SUDO_SS58:-}" \
+            -e VAL1_AURA_PUB="${VAL1_AURA_PUB:-}" \
+            -e VAL1_GRANDPA_PUB="${VAL1_GRANDPA_PUB:-}" \
+            -e VAL1_STASH_SS58="${VAL1_STASH_SS58:-}" \
+            -e VAL2_AURA_PUB="${VAL2_AURA_PUB:-}" \
+            -e VAL2_GRANDPA_PUB="${VAL2_GRANDPA_PUB:-}" \
+            -e VAL2_STASH_SS58="${VAL2_STASH_SS58:-}" \
+            --workdir /build \
+            paritytech/ci-unified:latest \
+            bash -c "
+              # Add target for cross-compilation (Parity standard)
+              rustup target add x86_64-unknown-linux-gnu
+              
+              # Build with Parity's recommended flags
+              cargo build --locked --release --target x86_64-unknown-linux-gnu -p fennel-node
+              
+              # Create distribution directory and install binary
+              mkdir -p dist
+              install -Dm0755 target/x86_64-unknown-linux-gnu/release/fennel-node dist/fennel-node
+              
+              # Verify binary works
+              ./dist/fennel-node --version
+            "
           echo "✅ fennel-node built and staged in dist/"
 
       - name: Package fennel node tarball
@@ -478,22 +493,26 @@ jobs:
           sudo apt-get update && sudo apt-get install -y jq
           echo "✅ Installed jq"
 
-      - name: Install chain-spec-builder
+      - name: Install chain-spec-builder using Parity CI Unified image
         run: |
           # Create directory for chain-spec-builder
           mkdir -p "${HOME}/.cargo/bin"
           
-          # Use Parity's prebuilt container that has Rust, protoc, and all dependencies
+          # Use Parity's CI Unified image for installation (canonical Parity practice)
           docker run --rm \
             -v "${PWD}":/build \
             -v "${HOME}/.cargo/bin":/cargo-bin \
             --workdir /build \
             paritytech/ci-unified:latest \
             bash -c "
-              cargo install staging-chain-spec-builder --locked --root /tmp/cargo-install && \
+              # Install chain-spec-builder with Parity's recommended approach
+              cargo install staging-chain-spec-builder --locked --root /tmp/cargo-install
               cp /tmp/cargo-install/bin/chain-spec-builder /cargo-bin/
+              
+              # Verify installation
+              /cargo-bin/chain-spec-builder --version || echo 'Version check not available'
             "
-          echo "✅ Installed chain-spec-builder"
+          echo "✅ Installed chain-spec-builder using Parity CI Unified image"
           
           # Add cargo bin to PATH for subsequent steps
           echo "${HOME}/.cargo/bin" >> $GITHUB_PATH
