@@ -370,6 +370,71 @@ jobs:
           echo "hash=$HASH" >> $GITHUB_OUTPUT
           echo "✅ Deterministic Wasm hash: $HASH"
 
+      # ------------------------------------------------------------
+      # Build Fennel node binary from source (canonical Parity-style)
+      # ------------------------------------------------------------
+      - name: Install Rust toolchain for node build
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Cache cargo build artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Build fennel node (release)
+        id: build_node
+        env:
+          PROD_SUDO_SS58: ${{ secrets.PROD_SUDO_SS58 }}
+          PROD_VAL1_AURA_PUB: ${{ secrets.PROD_VAL1_AURA_PUB }}
+          PROD_VAL1_GRANDPA_PUB: ${{ secrets.PROD_VAL1_GRANDPA_PUB }}
+          PROD_VAL1_STASH_SS58: ${{ secrets.PROD_VAL1_STASH_SS58 }}
+          PROD_VAL2_AURA_PUB: ${{ secrets.PROD_VAL2_AURA_PUB }}
+          PROD_VAL2_GRANDPA_PUB: ${{ secrets.PROD_VAL2_GRANDPA_PUB }}
+          PROD_VAL2_STASH_SS58: ${{ secrets.PROD_VAL2_STASH_SS58 }}
+        run: |
+          set -euo pipefail
+          echo "🔧 Building fennel node (release)..."
+          
+          # Export production environment variables for release builds
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            echo "🏭 Building production node with GitHub Secrets-sourced public keys"
+            export SUDO_SS58="${PROD_SUDO_SS58}"
+            export VAL1_AURA_PUB="${PROD_VAL1_AURA_PUB}"
+            export VAL1_GRANDPA_PUB="${PROD_VAL1_GRANDPA_PUB}"
+            export VAL1_STASH_SS58="${PROD_VAL1_STASH_SS58}"
+            export VAL2_AURA_PUB="${PROD_VAL2_AURA_PUB}"
+            export VAL2_GRANDPA_PUB="${PROD_VAL2_GRANDPA_PUB}"
+            export VAL2_STASH_SS58="${PROD_VAL2_STASH_SS58}"
+          else
+            echo "🧪 Building development/staging node (no production env vars needed)"
+          fi
+          
+          cargo build --locked --release -p fennel-node
+          install -Dm0755 target/release/fennel-node dist/fennel-node
+          echo "✅ fennel-node built and staged in dist/"
+
+      - name: Package fennel node tarball
+        id: pkg_node
+        run: |
+          set -euo pipefail
+          VER="${GITHUB_REF_NAME}"  # e.g. fennel-node-0.5.7
+          OUT="fennel-node-${VER}-linux-x86_64.tar.gz"
+          mkdir -p artifacts-node
+          tar -czf "artifacts-node/${OUT}" -C dist fennel-node
+          (cd artifacts-node && sha256sum "${OUT}" > "${OUT}.sha256")
+          echo "tarball=artifacts-node/${OUT}" >> "$GITHUB_OUTPUT"
+          echo "sha256=$(cut -d' ' -f1 artifacts-node/${OUT}.sha256)" >> "$GITHUB_OUTPUT"
+          echo "✅ Node tarball packaged: artifacts-node/${OUT}"
+          echo "✅ SHA256: $(cut -d' ' -f1 artifacts-node/${OUT}.sha256)"
+
       # Clean up srtool build artifacts to free disk space
       - name: Clean up srtool artifacts
         run: |
@@ -1020,6 +1085,15 @@ jobs:
           name: fennel-node-image-info
           path: ./artifacts/image-info.txt
 
+      - name: Upload node binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fennel-node-binary
+          path: |
+            ${{ steps.pkg_node.outputs.tarball }}
+            ${{ steps.pkg_node.outputs.tarball }}.sha256
+          if-no-files-found: error
+
       # ------------------------------------------------------------
       # Package and publish Helm chart with updated values
       # ------------------------------------------------------------
@@ -1158,6 +1232,10 @@ jobs:
           echo "🔗 Production chainspecs:"
           ls -la chainspecs/production/ || echo "❌ No production chainspecs directory found"
           
+          # Check node binary artifacts
+          echo "🧮 Node binary artifacts:"
+          ls -la artifacts-node/ || echo "❌ No node binary artifacts directory found"
+          
           # Verify specific files
           echo "✅ Checking specific files:"
           for file in \
@@ -1168,7 +1246,9 @@ jobs:
             "chainspecs/staging/staging-chainspec.json" \
             "chainspecs/staging/staging-raw.json" \
             "chainspecs/production/production-chainspec.json" \
-            "chainspecs/production/production-raw.json"; do
+            "chainspecs/production/production-raw.json" \
+            "artifacts-node/*.tar.gz" \
+            "artifacts-node/*.sha256"; do
             if ls $file 1> /dev/null 2>&1; then
               echo "  ✅ $file exists"
             else
@@ -1189,6 +1269,8 @@ jobs:
             chainspecs/staging/staging-raw.json
             chainspecs/production/production-chainspec.json
             chainspecs/production/production-raw.json
+            ${{ steps.pkg_node.outputs.tarball }}
+            ${{ steps.pkg_node.outputs.tarball }}.sha256
           generate_release_notes: true
           fail_on_unmatched_files: true
           overwrite_files: true
@@ -1219,6 +1301,11 @@ jobs:
           echo "- **Tag**: \`${{ steps.extract-tag.outputs.tag }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Wasm Hash**: \`${{ env.WASM_HASH }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🧮 Node Binary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tarball**: \`${{ steps.pkg_node.outputs.tarball }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **SHA256**: \`${{ steps.pkg_node.outputs.sha256 }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Architecture**: Linux x86_64" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📋 Chain Specs" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Development chain spec generated" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Staging chain spec generated" >> $GITHUB_STEP_SUMMARY
@@ -1244,6 +1331,7 @@ jobs:
           echo "### 📦 Artifacts" >> $GITHUB_STEP_SUMMARY
           echo "- 🐳 **fennel-node-image-info**: Docker image metadata and build info" >> $GITHUB_STEP_SUMMARY
           echo "- ⚓ **fennel-helm-chart**: Packaged Helm chart (\`.tgz\`)" >> $GITHUB_STEP_SUMMARY
+          echo "- 🧮 **fennel-node-binary**: Node binary tarball and SHA256 checksum" >> $GITHUB_STEP_SUMMARY
           if [[ "${{ github.ref }}" == refs/tags/* ]]; then
             echo "- 🔗 **fennel-chainspecs**: Development, staging, and **production** chainspecs (JSON + raw)" >> $GITHUB_STEP_SUMMARY
           else
@@ -1254,6 +1342,7 @@ jobs:
             echo "### 🏭 Production Release Information" >> $GITHUB_STEP_SUMMARY
             echo "- **Release Tag**: \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
             echo "- **Production Chainspec**: \`chainspecs/production/production-raw.json\`" >> $GITHUB_STEP_SUMMARY
+            echo "- **Node Binary**: \`${{ steps.pkg_node.outputs.tarball }}\` (Linux x86_64)" >> $GITHUB_STEP_SUMMARY
             echo "- **Chain Type**: Live (Production)" >> $GITHUB_STEP_SUMMARY
             echo "- **Bootnode Architecture**: External-only (Parity best practice)" >> $GITHUB_STEP_SUMMARY
             echo "- **Key Management**: Placeholder keys (Replace with Vault-managed keys for deployment)" >> $GITHUB_STEP_SUMMARY
@@ -1262,6 +1351,12 @@ jobs:
             echo "- Production chainspec contains placeholder validator keys" >> $GITHUB_STEP_SUMMARY
             echo "- Real validator and bootnode keys are managed via HashiCorp Vault" >> $GITHUB_STEP_SUMMARY
             echo "- Use offline-generated keys for production security" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "🤖 **For Parity Ansible Deployment**:" >> $GITHUB_STEP_SUMMARY
+            BINARY_FILENAME=$(basename "${{ steps.pkg_node.outputs.tarball }}")
+            echo "- Binary URL: \`https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/${BINARY_FILENAME}\`" >> $GITHUB_STEP_SUMMARY
+            echo "- Binary SHA256: \`${{ steps.pkg_node.outputs.sha256 }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "- Architecture: Linux x86_64" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
           fi
           echo "🔍 **View artifacts**: Go to the [Actions tab](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for this workflow run." >> $GITHUB_STEP_SUMMARY
