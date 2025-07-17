@@ -457,11 +457,38 @@ jobs:
           OUT="fennel-node-${VER}-linux-x86_64.tar.gz"
           mkdir -p artifacts-node
           tar -czf "artifacts-node/${OUT}" -C dist fennel-node
-          (cd artifacts-node && sha256sum "${OUT}" > "${OUT}.sha256")
-          echo "tarball=artifacts-node/${OUT}" >> "$GITHUB_OUTPUT"
-          echo "sha256=$(cut -d' ' -f1 artifacts-node/${OUT}.sha256)" >> "$GITHUB_OUTPUT"
+          
+          TARBALL_HASH=$(sha256sum "artifacts-node/${OUT}" | awk '{print $1}')
+          echo "tarball=artifacts-node/${OUT}"                              >> "$GITHUB_OUTPUT"
+          echo "sha256=$TARBALL_HASH"                                       >> "$GITHUB_OUTPUT"
+          # 👉 Ansible-ready format (<algo>:<hash>)
+          echo "ansible_checksum=sha256:${TARBALL_HASH}"                    >> "$GITHUB_OUTPUT"
+          
+          # Still generate the .sha256 file for compatibility
+          echo "$TARBALL_HASH  ${OUT}" > "artifacts-node/${OUT}.sha256"
+          
           echo "✅ Node tarball packaged: artifacts-node/${OUT}"
-          echo "✅ SHA256: $(cut -d' ' -f1 artifacts-node/${OUT}.sha256)"
+          echo "✅ Ansible checksum: sha256:${TARBALL_HASH}"
+
+      - name: Prepare raw binary for Parity Ansible
+        id: raw_binary
+        run: |
+          set -euo pipefail
+          cp dist/fennel-node artifacts-node/fennel-node-linux-x86_64
+          chmod 0755 artifacts-node/fennel-node-linux-x86_64
+
+          RAW_HASH=$(sha256sum artifacts-node/fennel-node-linux-x86_64 | awk '{print $1}')
+          echo "binary=artifacts-node/fennel-node-linux-x86_64"            >> "$GITHUB_OUTPUT"
+          echo "binary_sha256=artifacts-node/fennel-node-linux-x86_64.sha256" >> "$GITHUB_OUTPUT"
+          echo "sha256=$RAW_HASH"                                           >> "$GITHUB_OUTPUT"
+          # 👉 Ansible-ready format (<algo>:<hash>)
+          echo "ansible_checksum=sha256:${RAW_HASH}"                        >> "$GITHUB_OUTPUT"
+          
+          # Still generate the .sha256 file for compatibility
+          echo "$RAW_HASH  fennel-node-linux-x86_64" > artifacts-node/fennel-node-linux-x86_64.sha256
+          
+          echo "✅ Raw binary prepared: artifacts-node/fennel-node-linux-x86_64"
+          echo "✅ Ansible checksum: sha256:${RAW_HASH}"
 
       # Clean up srtool build artifacts to free disk space
       - name: Clean up srtool artifacts
@@ -1124,6 +1151,8 @@ jobs:
           path: |
             ${{ steps.pkg_node.outputs.tarball }}
             ${{ steps.pkg_node.outputs.tarball }}.sha256
+            ${{ steps.raw_binary.outputs.binary }}
+            ${{ steps.raw_binary.outputs.binary_sha256 }}
           if-no-files-found: error
 
       # ------------------------------------------------------------
@@ -1280,13 +1309,21 @@ jobs:
             "chainspecs/production/production-chainspec.json" \
             "chainspecs/production/production-raw.json" \
             "artifacts-node/*.tar.gz" \
-            "artifacts-node/*.sha256"; do
+            "artifacts-node/*.sha256" \
+            "artifacts-node/fennel-node-linux-x86_64" \
+            "artifacts-node/fennel-node-linux-x86_64.sha256"; do
             if ls $file 1> /dev/null 2>&1; then
               echo "  ✅ $file exists"
             else
               echo "  ❌ $file MISSING"
             fi
           done
+
+      - name: Derive artifact basenames for release body
+        id: relvars
+        run: |
+          echo "tarball_name=$(basename '${{ steps.pkg_node.outputs.tarball }}')" >> "$GITHUB_OUTPUT"
+          echo "raw_name=$(basename '${{ steps.raw_binary.outputs.binary }}')"   >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -1303,9 +1340,50 @@ jobs:
             chainspecs/production/production-raw.json
             ${{ steps.pkg_node.outputs.tarball }}
             ${{ steps.pkg_node.outputs.tarball }}.sha256
+            ${{ steps.raw_binary.outputs.binary }}
+            ${{ steps.raw_binary.outputs.binary_sha256 }}
           generate_release_notes: true
           fail_on_unmatched_files: true
           overwrite_files: true
+          body: |
+            ## 🚀 Fennel Node ${{ github.ref_name }}
+
+            This release ships the Fennel node binary, Docker image, Helm chart and full chainspec set.
+
+            ### 📦 Quick start for Ansible
+
+            ```yaml
+            # Copy these into your Ansible vars (the values are literal, not templated at runtime)
+            fennel_node_version: "${{ github.ref_name }}"
+            fennel_node_binary_url: "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/${{ steps.relvars.outputs.raw_name }}"
+            fennel_node_binary_checksum: "${{ steps.raw_binary.outputs.ansible_checksum }}"
+
+            fennel_node_tarball_url: "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/${{ steps.relvars.outputs.tarball_name }}"
+            fennel_node_tarball_checksum: "${{ steps.pkg_node.outputs.ansible_checksum }}"
+            ```
+
+            ```yaml
+            - name: Install Fennel node
+              ansible.builtin.get_url:
+                url: "{{ fennel_node_binary_url }}"
+                dest: /usr/local/bin/fennel-node
+                mode: "0755"  # Required: GitHub releases don't preserve executable permissions
+                checksum: "{{ fennel_node_binary_checksum }}"
+            ```
+
+            ### 🐳 Docker
+
+            ```bash
+            docker pull ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+            ```
+
+            ### 📋 Chainspecs
+            Dev · Staging · Production JSON + raw files are attached.
+
+            **Runtime WASM SHA-256:** `${{ env.WASM_HASH }}`
+
+            ---
+            *Built deterministically with srtool* 🛠️
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -1335,7 +1413,11 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🧮 Node Binary" >> $GITHUB_STEP_SUMMARY
           echo "- **Tarball**: \`${{ steps.pkg_node.outputs.tarball }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **SHA256**: \`${{ steps.pkg_node.outputs.sha256 }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tarball SHA256**: \`${{ steps.pkg_node.outputs.sha256 }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tarball Ansible Checksum**: \`${{ steps.pkg_node.outputs.ansible_checksum }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Raw Binary**: \`${{ steps.raw_binary.outputs.binary }}\` (for Parity Ansible)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Raw Binary SHA256**: \`${{ steps.raw_binary.outputs.sha256 }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Raw Binary Ansible Checksum**: \`${{ steps.raw_binary.outputs.ansible_checksum }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Architecture**: Linux x86_64" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📋 Chain Specs" >> $GITHUB_STEP_SUMMARY
@@ -1386,9 +1468,30 @@ jobs:
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "🤖 **For Parity Ansible Deployment**:" >> $GITHUB_STEP_SUMMARY
             BINARY_FILENAME=$(basename "${{ steps.pkg_node.outputs.tarball }}")
-            echo "- Binary URL: \`https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/${BINARY_FILENAME}\`" >> $GITHUB_STEP_SUMMARY
-            echo "- Binary SHA256: \`${{ steps.pkg_node.outputs.sha256 }}\`" >> $GITHUB_STEP_SUMMARY
-            echo "- Architecture: Linux x86_64" >> $GITHUB_STEP_SUMMARY
+            RAW_BINARY_FILENAME=$(basename "${{ steps.raw_binary.outputs.binary }}")
+            echo "- **Tarball URL**: \`https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/${BINARY_FILENAME}\`" >> $GITHUB_STEP_SUMMARY
+            echo "- **Raw Binary URL**: \`https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/${RAW_BINARY_FILENAME}\` (recommended)" >> $GITHUB_STEP_SUMMARY
+            echo "- **Raw Binary Ansible Checksum**: \`${{ steps.raw_binary.outputs.ansible_checksum }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "- **Architecture**: Linux x86_64" >> $GITHUB_STEP_SUMMARY
+            echo "- **Usage**: Direct download for Parity Ansible roles (avoids unarchive step)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "📋 **Ansible Inventory Example**:" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`yaml" >> $GITHUB_STEP_SUMMARY
+            echo "node_binary: \"https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/${RAW_BINARY_FILENAME}\"" >> $GITHUB_STEP_SUMMARY
+            echo "node_binary_checksum: \"${{ steps.raw_binary.outputs.ansible_checksum }}\"" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️ **Important: Always Set Executable Permissions**" >> $GITHUB_STEP_SUMMARY
+            echo "GitHub Releases don't preserve POSIX permissions reliably. Always set mode explicitly:" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`yaml" >> $GITHUB_STEP_SUMMARY
+            echo "- name: Download and install Fennel node binary" >> $GITHUB_STEP_SUMMARY
+            echo "  ansible.builtin.get_url:" >> $GITHUB_STEP_SUMMARY
+            echo "    url: \"https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/${RAW_BINARY_FILENAME}\"" >> $GITHUB_STEP_SUMMARY
+            echo "    dest: /usr/local/bin/fennel-node" >> $GITHUB_STEP_SUMMARY
+            echo "    mode: '0755'" >> $GITHUB_STEP_SUMMARY
+            echo "    checksum: \"${{ steps.raw_binary.outputs.ansible_checksum }}\"" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "This prevents 'Permission denied' errors and follows Substrate community best practices." >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
           fi
           echo "🔍 **View artifacts**: Go to the [Actions tab](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for this workflow run." >> $GITHUB_STEP_SUMMARY
