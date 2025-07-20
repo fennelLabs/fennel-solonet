@@ -82,3 +82,102 @@ release/
 # Platform specific
 Thumbs.db
 ehthumbs.db
+
+# Docker artifacts
+.dockerignore
+docker-compose.override.yml
+*.dockerfile.local
+
+# CI/CD artifacts
+.github/workflows/*.local.yml
+.github/workflows/*.test.yml
+.github/workflows/*.backup.yml
+
+# Environment files
+.env
+.env.local
+.env.production
+.env.staging
+.env.test
+
+# Backup and temporary files
+*.bak
+*.tmp
+*.temp
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# GPG and signing artifacts
+*.asc
+*.gpg
+*.sig
+.gnupg/
+
+# Helm chart artifacts
+Charts/*/charts/
+Charts/*/requirements.lock
+*.tgz
+
+# Kubernetes artifacts
+*.kubeconfig
+kubeconfig
+kubeconfig.*
+
+# Monitoring and metrics
+prometheus-data/
+grafana-data/
+*.prom
+
+# Network and connectivity
+*.pcap
+*.cap
+network-logs/
+
+# Benchmark and performance data
+benchmarks/
+*.bench
+*.prof
+*.flamegraph
+
+# Documentation build artifacts
+docs/_build/
+docs/.doctrees/
+docs/api/
+
+# Rust specific additional
+**/*.rlib
+**/*.rmeta
+**/*.d
+rust-toolchain.toml.bak
+rustfmt.toml.bak
+
+# Project-specific files to ignore
+docs/ENHANCED-CICD.md
+.github/release-signing.pub.asc
+docs/CRYPTOGRAPHIC-VERSION-UNITY.md
+scripts/init.sh
+scripts/local-k3d-setup.sh
+scripts/package-chart.sh
+scripts/run_alice.sh
+scripts/run_bob.sh
+scripts/run_charlie.sh
+scripts/run_dave.sh
+scripts/run_eve.sh
+scripts/run-benchmarks.sh
+scripts/staging-external-setup.sh
+scripts/test-chart.sh
+scripts/test-helm-chart.sh
+scripts/test-staging-build.sh
+scripts/validate-chart.sh
+create-release-tag.sh
+PRODUCTION_SECRETS_SETUP.md
+RELEASE_PROCESS.md
+test-bootnode-injection.sh
