@@ -126,6 +126,17 @@ Charts/*/charts/
 Charts/*/requirements.lock
 *.tgz
 
+# Local testing and development files
+.github/act-testing.mk
+.github/event-release.json
+.github/event-tag-push.json
+docs/original dockerfile.txt
+docs/original githubactions workflow.txt
+.actrc
+ACT_TESTING_SUMMARY.md
+.secrets
+test-workflow.sh
+
 # Kubernetes artifacts
 *.kubeconfig
 kubeconfig
