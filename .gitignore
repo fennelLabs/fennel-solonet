@@ -121,6 +121,9 @@ Thumbs.db
 *.sig
 .gnupg/
 
+# Exception: Allow the release signing public key to be tracked
+!.github/release-signing.pub.asc
+
 # Helm chart artifacts
 Charts/*/charts/
 Charts/*/requirements.lock
@@ -172,7 +175,6 @@ rustfmt.toml.bak
 
 # Project-specific files to ignore
 docs/ENHANCED-CICD.md
-.github/release-signing.pub.asc
 docs/CRYPTOGRAPHIC-VERSION-UNITY.md
 scripts/init.sh
 scripts/local-k3d-setup.sh
