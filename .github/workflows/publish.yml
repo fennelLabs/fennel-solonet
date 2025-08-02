@@ -1108,6 +1108,7 @@ jobs:
           echo "✅ All chainspecs verified successfully"
 
       - name: Upload chain specs as artifacts
+        if: matrix.platform == 'linux/amd64'  # Only upload once since chainspecs are platform-independent
         uses: actions/upload-artifact@v4
         with:
           name: fennel-chainspecs
@@ -1179,13 +1180,13 @@ jobs:
       - name: Upload Docker image info artifact
         uses: actions/upload-artifact@v4
         with:
-          name: fennel-node-image-info
+          name: fennel-node-image-info-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
           path: ./artifacts/image-info.txt
 
       - name: Upload node binary artifact
         uses: actions/upload-artifact@v4
         with:
-          name: fennel-node-binary
+          name: fennel-node-binary-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
           path: |
             ${{ steps.pkg_node.outputs.tarball }}
             ${{ steps.pkg_node.outputs.tarball }}.sha256
@@ -1434,6 +1435,7 @@ jobs:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
 
       - name: Upload Helm chart artifact
+        if: matrix.platform == 'linux/amd64'  # Only upload once since Helm charts are platform-independent
         uses: actions/upload-artifact@v4
         with:
           name: fennel-helm-chart
