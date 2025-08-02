@@ -10,15 +10,26 @@ FROM --platform=$BUILDPLATFORM docker.io/paritytech/ci-unified:bullseye-1.88.0 A
 ARG TARGETPLATFORM
 WORKDIR /fennel
 
-# --- cross-toolchain for Arm64 (gcc & full sysroot) ---------------
+# --- Use system libraries to avoid compiling massive C/C++ codebases ---------------
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
-    libc6-dev-arm64-cross libstdc++-10-dev-arm64-cross
-# Tell cc-rs / bindgen where the headers live
+    binaryen librocksdb-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# --- cross-toolchain for Arm64 (only when needed) ---------------
+ARG TARGETPLATFORM
+RUN if [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
+        apt-get update && apt-get install -y --no-install-recommends \
+        gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
+        libc6-dev-arm64-cross libstdc++-10-dev-arm64-cross \
+        && rm -rf /var/lib/apt/lists/*; \
+    fi
+# Tell cc-rs / bindgen where the headers live + use system libraries
 ENV CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc \
     CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc \
     CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++ \
-    AR_aarch64_unknown_linux_gnu=aarch64-linux-gnu-ar
+    AR_aarch64_unknown_linux_gnu=aarch64-linux-gnu-ar \
+    BINARYEN_SYSTEM_LIB=1 \
+    ROCKSDB_LIB_DIR=/usr/lib/x86_64-linux-gnu
 
 # Cargo-chef (one install is enough for both legs)
 RUN cargo install cargo-chef
@@ -31,6 +42,10 @@ ENV CARGO_NET_GIT_FETCH_WITH_CLI=true
 ENV CARGO_INCREMENTAL=0
 ENV CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1
 ENV CARGO_PROFILE_RELEASE_LTO=true
+# Reduce memory usage and disk space during builds
+ENV CARGO_PROFILE_RELEASE_DEBUG=0
+ENV CARGO_PROFILE_RELEASE_SPLIT_DEBUGINFO=off
+ENV CARGO_TARGET_DIR=/tmp/target
 
 # Planner stage - analyze dependencies
 FROM builder AS planner
@@ -96,7 +111,15 @@ COPY --from=planner /fennel/recipe.json recipe.json
 # ensure std is present in *this* layer too
 RUN . /etc/environment && \
     rustup target list --installed | grep -q "$RUST_TARGET" || rustup target add "$RUST_TARGET" && \
-    cargo chef cook --release --target $RUST_TARGET --recipe-path recipe.json
+    # Use system libraries to avoid compiling massive C/C++ codebases
+    export BINARYEN_SYSTEM_LIB=1 && \
+    export ROCKSDB_LIB_DIR=/usr/lib/x86_64-linux-gnu && \
+    cargo chef cook --release --target $RUST_TARGET --recipe-path recipe.json && \
+    # Clean up intermediate artifacts to save space
+    find /tmp/target -name "*.rlib" -type f -delete && \
+    find /tmp/target -name "*.rmeta" -type f -delete && \
+    find /tmp/target -name "*.o" -type f -delete && \
+    find /tmp/target -name "*.a" -type f -delete || true
 
 # ---------------  final build  ----------------------
 COPY . .
@@ -104,9 +127,15 @@ RUN . /etc/environment && \
     # ensure std is present in *this* layer too \
     rustup target list --installed | grep -q "$RUST_TARGET" || rustup target add "$RUST_TARGET" && \
     echo "Building for target: $RUST_TARGET" && \
+    # Use system libraries to avoid compiling massive C/C++ codebases
+    export BINARYEN_SYSTEM_LIB=1 && \
+    export ROCKSDB_LIB_DIR=/usr/lib/x86_64-linux-gnu && \
+    # Use CARGO_TARGET_DIR to build in /tmp and clean as we go
     cargo build --locked --release --target=$RUST_TARGET && \
     mkdir -p /out && \
-    install -Dm755 target/$RUST_TARGET/release/fennel-node /out/fennel-node
+    install -Dm755 /tmp/target/$RUST_TARGET/release/fennel-node /out/fennel-node && \
+    # Aggressive cleanup to free disk space immediately
+    rm -rf /tmp/target ~/.cargo/registry ~/.cargo/git
 
 ####################  🏃  RUNTIME  ####################
 FROM --platform=$TARGETPLATFORM docker.io/parity/base-bin:latest

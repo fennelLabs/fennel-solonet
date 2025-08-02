@@ -83,3 +83,19 @@ sp-version = { version = "39.0.0", default-features = false }
 substrate-wasm-builder = { version = "26.0.0", default-features = false }
 pallet-session = { version = "40.0.1", default-features = false, features = ["historical"] }
 
+# Optimize builds for space and memory usage during CI/CD
+[profile.release]
+# Optimize for size over speed in CI builds
+opt-level = "s"        # or "z" for even smaller binaries
+# Use thin LTO to keep memory reasonable (avoid OOM on CI runners)
+lto = "thin"           # was "true" - thin LTO uses less memory
+codegen-units = 1
+panic = "abort"
+# Disable debug info in release builds to save space
+debug = false
+# Reduce memory usage during builds
+debug-assertions = false
+# Explicit settings for space optimization
+incremental = false    # saves a few *.rincr files
+strip = "symbols"      # strip symbols from final binary
+
