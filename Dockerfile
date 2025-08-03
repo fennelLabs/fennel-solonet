@@ -6,13 +6,18 @@ ARG TARGETPLATFORM
 # ------------------------------------------------------------------
 
 ####################  🍳  BUILDER  ####################
-FROM --platform=$BUILDPLATFORM docker.io/paritytech/ci-unified:bullseye-1.88.0 AS builder
+FROM --platform=$BUILDPLATFORM docker.io/paritytech/ci-unified:latest AS builder
 ARG TARGETPLATFORM
 WORKDIR /fennel
 
+# Upgrade Rust to latest stable (>=1.85.0, which supports edition2024)
+RUN rustup update stable
+
 # --- Use system libraries to avoid compiling massive C/C++ codebases ---------------
+# Note: Removed librocksdb-dev because system version is too old (7.x vs required 8.x)
+# We'll use vendored/static RocksDB build instead
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    binaryen librocksdb-dev \
+    binaryen \
     && rm -rf /var/lib/apt/lists/*
 
 # --- cross-toolchain for Arm64 (only when needed) ---------------
@@ -23,13 +28,13 @@ RUN if [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
         libc6-dev-arm64-cross libstdc++-10-dev-arm64-cross \
         && rm -rf /var/lib/apt/lists/*; \
     fi
-# Tell cc-rs / bindgen where the headers live + use system libraries
+# Tell cc-rs / bindgen where the headers live + use system libraries where possible
 ENV CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc \
     CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc \
     CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++ \
     AR_aarch64_unknown_linux_gnu=aarch64-linux-gnu-ar \
     BINARYEN_SYSTEM_LIB=1 \
-    ROCKSDB_LIB_DIR=/usr/lib/x86_64-linux-gnu
+    ROCKSDB_STATIC=1
 
 # Cargo-chef (one install is enough for both legs)
 RUN cargo install cargo-chef
@@ -46,6 +51,8 @@ ENV CARGO_PROFILE_RELEASE_LTO=true
 ENV CARGO_PROFILE_RELEASE_DEBUG=0
 ENV CARGO_PROFILE_RELEASE_SPLIT_DEBUGINFO=off
 ENV CARGO_TARGET_DIR=/tmp/target
+# Set workspace hint for WASM builds
+ENV WASM_BUILD_WORKSPACE_HINT=/fennel
 
 # Planner stage - analyze dependencies
 FROM builder AS planner
@@ -111,9 +118,9 @@ COPY --from=planner /fennel/recipe.json recipe.json
 # ensure std is present in *this* layer too
 RUN . /etc/environment && \
     rustup target list --installed | grep -q "$RUST_TARGET" || rustup target add "$RUST_TARGET" && \
-    # Use system libraries to avoid compiling massive C/C++ codebases
+    # Use system libraries where possible, static RocksDB
     export BINARYEN_SYSTEM_LIB=1 && \
-    export ROCKSDB_LIB_DIR=/usr/lib/x86_64-linux-gnu && \
+    export ROCKSDB_STATIC=1 && \
     cargo chef cook --release --target $RUST_TARGET --recipe-path recipe.json && \
     # Clean up intermediate artifacts to save space
     find /tmp/target -name "*.rlib" -type f -delete && \
@@ -127,9 +134,9 @@ RUN . /etc/environment && \
     # ensure std is present in *this* layer too \
     rustup target list --installed | grep -q "$RUST_TARGET" || rustup target add "$RUST_TARGET" && \
     echo "Building for target: $RUST_TARGET" && \
-    # Use system libraries to avoid compiling massive C/C++ codebases
+    # Use system libraries where possible, static RocksDB
     export BINARYEN_SYSTEM_LIB=1 && \
-    export ROCKSDB_LIB_DIR=/usr/lib/x86_64-linux-gnu && \
+    export ROCKSDB_STATIC=1 && \
     # Use CARGO_TARGET_DIR to build in /tmp and clean as we go
     cargo build --locked --release --target=$RUST_TARGET && \
     mkdir -p /out && \
