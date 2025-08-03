@@ -177,6 +177,7 @@ jobs:
           dotnet: true         # 3 GB save  
           haskell: true        # 2 GB save
           large-packages: true # 4 GB save
+          docker-images: true  # 10 GB save - remove unused docker images
           swap-storage: false  # Keep swap for large builds
 
       # Set up Docker Buildx for efficient layer caching
@@ -454,6 +455,16 @@ jobs:
               ./dist/fennel-node --version
             "
           echo "✅ fennel-node built and staged in dist/"
+          
+          # Clean up build artifacts after copying binary
+          echo "🧹 Cleaning up build artifacts to free space..."
+          rm -rf target/x86_64-unknown-linux-gnu/release/deps || true
+          rm -rf target/x86_64-unknown-linux-gnu/release/build || true
+          rm -rf target/x86_64-unknown-linux-gnu/release/.fingerprint || true
+          rm -rf target/x86_64-unknown-linux-gnu/release/incremental || true
+          find target -type f -name "*.rlib" -delete || true
+          find target -type f -name "*.rmeta" -delete || true
+          echo "✅ Build artifacts cleaned"
 
       - name: Package fennel node tarball
         id: pkg_node
@@ -514,6 +525,11 @@ jobs:
           sudo rm -rf /tmp/* || true
           # Remove apt cache
           sudo apt-get clean || true
+          # Remove package manager caches
+          sudo rm -rf /var/cache/apt/archives/* || true
+          sudo rm -rf /var/lib/apt/lists/* || true
+          # Remove journal logs
+          sudo journalctl --vacuum-time=1s || true
           
           echo "=== Disk usage after cleanup ==="
           df -h
@@ -1115,6 +1131,31 @@ jobs:
             chainspecs/production/production-chainspec.json
             chainspecs/production/production-raw.json
           if-no-files-found: ignore
+      
+      # Additional cleanup before Docker build to maximize available space
+      - name: Pre-Docker build cleanup
+        run: |
+          echo "=== Pre-Docker build cleanup ==="
+          # Remove all cargo build artifacts except the final binary
+          find target -type f -name "*.rlib" -delete || true
+          find target -type f -name "*.rmeta" -delete || true
+          find target -type d -name "deps" -exec rm -rf {} + || true
+          find target -type d -name "build" -exec rm -rf {} + || true
+          find target -type d -name ".fingerprint" -exec rm -rf {} + || true
+          find target -type d -name "incremental" -exec rm -rf {} + || true
+          
+          # Remove cargo registry cache to free space
+          rm -rf ~/.cargo/registry/cache || true
+          rm -rf ~/.cargo/registry/index || true
+          
+          # Remove git objects we don't need
+          rm -rf .git/objects/pack || true
+          
+          # Final aggressive cleanup
+          docker system prune -af --volumes || true
+          
+          echo "=== Disk usage before Docker build ==="
+          df -h
       
       # This step uses the `docker/build-push-action` action to build the image, based on your repository's `Dockerfile`. If the build succeeds, it pushes the image to GitHub Packages.
       # It uses the `context` parameter to define the build's context as the set of files located in the specified path. For more information, see "[Usage](https://github.com/docker/build-push-action#usage)" in the README of the `docker/build-push-action` repository.
