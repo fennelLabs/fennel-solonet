@@ -23,10 +23,6 @@ env:
 jobs:
   build-and-push-image:
     runs-on: ubuntu-latest
-    # Use matrix strategy to build each architecture separately (saves ~8GB disk space per build)
-    strategy:
-      matrix:
-        platform: [linux/amd64, linux/arm64]
     # Sets the permissions granted to the `GITHUB_TOKEN` for the actions in this job.
     permissions:
       contents: write  # Changed from read to write to allow pushing commits
@@ -187,11 +183,11 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       
-      - name: Set up QEMU (for cross-platform emulation)
-        if: matrix.platform == 'linux/arm64'
+      # Set up QEMU for ARM64 emulation
+      - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
         with:
-          platforms: arm64
+          platforms: linux/arm64
       
       # ------------------------------------------------------------
       # BOOTNODE PEER ID CONFIGURATION
@@ -1108,7 +1104,6 @@ jobs:
           echo "✅ All chainspecs verified successfully"
 
       - name: Upload chain specs as artifacts
-        if: matrix.platform == 'linux/amd64'  # Only upload once since chainspecs are platform-independent
         uses: actions/upload-artifact@v4
         with:
           name: fennel-chainspecs
@@ -1124,42 +1119,15 @@ jobs:
       # This step uses the `docker/build-push-action` action to build the image, based on your repository's `Dockerfile`. If the build succeeds, it pushes the image to GitHub Packages.
       # It uses the `context` parameter to define the build's context as the set of files located in the specified path. For more information, see "[Usage](https://github.com/docker/build-push-action#usage)" in the README of the `docker/build-push-action` repository.
       # It uses the `tags` and `labels` parameters to tag and label the image with the output from the "meta" step.
-      
-      # Aggressive cleanup before Docker build to maximize available space
-      - name: Pre-build cleanup to maximize disk space
-        run: |
-          echo "=== Pre-build space optimization ==="
-          df -h
-          
-          # Remove large unnecessary files
-          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost /usr/local/graalvm /usr/local/share/powershell /usr/local/share/chromium /usr/local/lib/android || true
-          sudo rm -rf /usr/local/.ghcup /home/linuxbrew || true
-          
-          # Clean package caches
-          sudo apt-get clean
-          sudo apt-get autoremove -y
-          
-          # Remove Docker cache and images
-          docker system prune -af --volumes || true
-          
-          # Remove all previous Rust build artifacts
-          rm -rf target/ ~/.cargo/registry/cache/ ~/.cargo/git/db/ || true
-          
-          # Clear tmp and logs
-          sudo rm -rf /tmp/* /var/log/* || true
-          
-          echo "=== Space after cleanup ==="
-          df -h
-      
       - name: Build and push Docker image
         id: build
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
-          platforms: ${{ matrix.platform }}   # 🟢 Build one platform per runner
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64,linux/arm64
           build-args: |
             WASM_HASH=${{ env.WASM_HASH }}
           # Remove problematic cache settings that are causing the blob error
@@ -1180,13 +1148,13 @@ jobs:
       - name: Upload Docker image info artifact
         uses: actions/upload-artifact@v4
         with:
-          name: fennel-node-image-info-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+          name: fennel-node-image-info
           path: ./artifacts/image-info.txt
 
       - name: Upload node binary artifact
         uses: actions/upload-artifact@v4
         with:
-          name: fennel-node-binary-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+          name: fennel-node-binary
           path: |
             ${{ steps.pkg_node.outputs.tarball }}
             ${{ steps.pkg_node.outputs.tarball }}.sha256
@@ -1383,7 +1351,6 @@ jobs:
             ${{ steps.raw_binary.outputs.binary_sha256 }}
           generate_release_notes: true
           fail_on_unmatched_files: true
-          overwrite_files: true
           body: |
             ## 🚀 Fennel Node ${{ github.ref_name }}
 
@@ -1435,7 +1402,6 @@ jobs:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
 
       - name: Upload Helm chart artifact
-        if: matrix.platform == 'linux/amd64'  # Only upload once since Helm charts are platform-independent
         uses: actions/upload-artifact@v4
         with:
           name: fennel-helm-chart
