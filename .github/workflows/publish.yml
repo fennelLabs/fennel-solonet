@@ -471,7 +471,9 @@ jobs:
         run: |
           set -euo pipefail
           VER="${GITHUB_REF_NAME}"  # e.g. fennel-node-0.5.7
-          OUT="fennel-node-${VER}-linux-x86_64.tar.gz"
+          # Remove the fennel-node- prefix from version if it exists
+          VERSION_ONLY="${VER#fennel-node-}"  # This strips the prefix, resulting in just "0.5.7"
+          OUT="fennel-node-${VERSION_ONLY}-linux-x86_64.tar.gz"
           mkdir -p artifacts-node
           tar -czf "artifacts-node/${OUT}" -C dist fennel-node
           
