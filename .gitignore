@@ -139,6 +139,8 @@ docs/original githubactions workflow.txt
 ACT_TESTING_SUMMARY.md
 .secrets
 test-workflow.sh
+dockerfiles/
+Makefile
 
 # Kubernetes artifacts
 *.kubeconfig
