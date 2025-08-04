@@ -1,9 +1,11 @@
 name: Create and publish a Docker image
 
-# Configures this workflow to run only on signed release tags
+# Configures this workflow to run on signed release tags for both node and helm releases
 on:
   push:
-    tags: ['fennel-node-*']    # run only for release tags
+    tags: 
+      - 'fennel-node-*'    # run for node release tags
+      - 'helm-fennel-node-*'  # run for helm chart release tags
   workflow_dispatch:
     inputs:
       rebuild_release:
@@ -401,6 +403,7 @@ jobs:
             ${{ runner.os }}-cargo-
 
       - name: Build fennel node using Parity CI Unified image
+        if: startsWith(github.ref, 'refs/tags/fennel-node-') || !startsWith(github.ref, 'refs/tags/')
         id: build_node
         env:
           PROD_SUDO_SS58: ${{ secrets.PROD_SUDO_SS58 }}
@@ -850,7 +853,7 @@ jobs:
       # Only generate production chainspecs for release tags
       # ------------------------------------------------------------
       - name: Create production chain specs
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/fennel-node-')
         env:
           PROD_SUDO_SS58: ${{ secrets.PROD_SUDO_SS58 }}
           PROD_VAL1_AURA_PUB: ${{ secrets.PROD_VAL1_AURA_PUB }}
@@ -951,7 +954,7 @@ jobs:
           echo "✅ All production chain spec files are populated"
 
       - name: Inject bootnodes into production chain spec
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/fennel-node-')
         run: |
           set -euo pipefail
           
@@ -1004,7 +1007,7 @@ jobs:
           jq '{name: .name, id: .id, chainType: .chainType}' "$SPEC"
 
       - name: Commit production chainspecs to repository
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/fennel-node-')
         run: |
           # Configure git
           git config --local user.email "action@github.com"
@@ -1163,6 +1166,7 @@ jobs:
       # It uses the `context` parameter to define the build's context as the set of files located in the specified path. For more information, see "[Usage](https://github.com/docker/build-push-action#usage)" in the README of the `docker/build-push-action` repository.
       # It uses the `tags` and `labels` parameters to tag and label the image with the output from the "meta" step.
       - name: Build and push Docker image
+        if: startsWith(github.ref, 'refs/tags/fennel-node-') || !startsWith(github.ref, 'refs/tags/')
         id: build
         uses: docker/build-push-action@v6
         with:
@@ -1242,9 +1246,10 @@ jobs:
       - name: Update Chart.yaml version for releases
         if: startsWith(github.ref, 'refs/tags/')
         run: |
-          # Extract version from tag (fennel-node-X.Y.Z -> X.Y.Z)
+          # Extract version from tag (fennel-node-X.Y.Z -> X.Y.Z or helm-fennel-node-X.Y.Z -> X.Y.Z)
           CHART_VERSION="${{ github.ref_name }}"
           CHART_VERSION="${CHART_VERSION#fennel-node-}"  # Remove fennel-node- prefix
+          CHART_VERSION="${CHART_VERSION#helm-fennel-node-}"  # Remove helm-fennel-node- prefix
           
           echo "🏷️  Updating Chart.yaml version to: $CHART_VERSION"
           
@@ -1321,7 +1326,7 @@ jobs:
           ls -la release/
 
       - name: Verify release files exist
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/fennel-node-')
         run: |
           echo "🔍 Verifying all expected release files exist..."
           
@@ -1377,7 +1382,7 @@ jobs:
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/fennel-node-')
         with:
           files: |
             release/*.tgz
@@ -1438,6 +1443,7 @@ jobs:
 
       - name: Run chart-releaser
         uses: helm/chart-releaser-action@v1.6.0
+        if: startsWith(github.ref, 'refs/tags/helm-fennel-node-')
         with:
           charts_dir: Charts
           skip_existing: true
