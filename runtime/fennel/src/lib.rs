@@ -66,15 +66,15 @@ pub mod opaque {
 // https://docs.substrate.io/main-docs/build/upgrade#runtime-versioning
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: alloc::borrow::Cow::Borrowed("solochain-runtime"),
-	impl_name: alloc::borrow::Cow::Borrowed("solochain-runtime"),
+    spec_name: alloc::borrow::Cow::Borrowed("fennel"),
+    impl_name: alloc::borrow::Cow::Borrowed("fennel-node"),
 	authoring_version: 1,
 	// The version of the runtime specification. A full node will not attempt to use its native
 	//   runtime in substitute for the on-chain Wasm runtime unless all of `spec_name`,
 	//   `spec_version`, and `authoring_version` are the same between Wasm and native.
 	// This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
 	//   the compatible custom types.
-	spec_version: 101,
+	spec_version: 102,
 	impl_version: 1,
 	apis: apis::RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -103,13 +103,14 @@ pub const DAYS: BlockNumber = HOURS * 24;
 
 pub const BLOCK_HASH_COUNT: BlockNumber = 2400;
 
-// Unit = the base number of indivisible units for balances
-pub const UNIT: Balance = 1_000_000_000_000;
-pub const MILLI_UNIT: Balance = 1_000_000_000;
-pub const MICRO_UNIT: Balance = 1_000_000;
+// Token precision and unit definitions
+pub const TOKEN_DECIMALS: u8 = 12;
+pub const UNIT: Balance = 10u128.pow(TOKEN_DECIMALS as u32);   // 1 FNL
+pub const MILLIUNIT: Balance = UNIT / 1_000;                  // 0.001 FNL
+pub const MICROUNIT: Balance = UNIT / 1_000_000;              // 0.000001 FNL
 
 /// Existential deposit.
-pub const EXISTENTIAL_DEPOSIT: Balance = MILLI_UNIT;
+pub const EXISTENTIAL_DEPOSIT: Balance = 10 * UNIT;
 
 /// The version information used to identify this runtime when compiled natively.
 #[cfg(feature = "std")]
@@ -194,11 +195,19 @@ impl Convert<AccountId, Option<AccountId>> for ConvertAccountIdToSessionIndex {
     fn convert(x: AccountId) -> Option<AccountId> { Some(x) }
 }
 
+// ─── Session cadence & validator floor ────────────────────────────────
 parameter_types! {
-    pub const Period: u32 = 50; // 50 blocks = 10 minutes per session (50 * 12 seconds = 600 seconds)
+    /// 30 blocks × 12 s = 6 minutes per session.
+    pub const Period: u32 = 30;
     pub const Offset: u32 = 0;
+    /// Keep at least two live authors before the chain halts.
     pub const MinAuthorities: u32 = 2;
 }
+
+/// Automatically prune up to *one* faulty validator at each
+/// session boundary, but never enough to violate `MinAuthorities`.
+type DisablingStrategy =
+    pallet_session::disabling::UpToLimitDisablingStrategy<1>;
 
 impl pallet_session::Config for Runtime {
     type RuntimeEvent      = RuntimeEvent;
@@ -215,7 +224,7 @@ impl pallet_session::Config for Runtime {
     type NextSessionRotation = PeriodicSessions<Period, Offset>;
     type WeightInfo        = pallet_session::weights::SubstrateWeight<Runtime>;
     // Enable automatic disabling of unresponsive validators (up to 1/3 of validators can be disabled)
-    type DisablingStrategy = pallet_session::disabling::UpToLimitDisablingStrategy<3>;
+    type DisablingStrategy = DisablingStrategy;
 }
 
 // Configure the validator manager pallet
@@ -231,7 +240,7 @@ impl pallet_validator_manager::Config for Runtime {
 
 parameter_types! {
     pub const CertificateLockId: [u8; 8] = *b"certlock";
-    pub const CertificateLockPrice: u32 = 4_294_967_295; // max u32 value
+    pub const CertificateLockPrice: Balance = 100 * UNIT;      // 100 FNL
 }
 
 impl pallet_certificate::Config for Runtime {
@@ -258,7 +267,7 @@ impl pallet_keystore::Config for Runtime {
 
 parameter_types! {
     pub const InfostratusLockId: [u8; 8] = *b"infosloc";
-    pub const InfostratusLockPrice: u32 = 1_000_000_000; // set as needed
+    pub const InfostratusLockPrice: Balance = 10 * UNIT;       // 10 FNL
     pub const InfostratusMaxSize: u32 = 1024; // Updated to match original codebase
 }
 
@@ -273,7 +282,7 @@ impl pallet_infostratus::Config for Runtime {
 
 parameter_types! {
     pub const SignalLockId: [u8; 8] = *b"signallk";
-    pub const SignalLockPrice: u32 = 1_000_000_000; // set as needed
+    pub const SignalLockPrice: Balance = 10 * UNIT;            // 10 FNL
     pub const SignalMaxSize: u32 = 1024; // Updated to match original codebase
 }
 

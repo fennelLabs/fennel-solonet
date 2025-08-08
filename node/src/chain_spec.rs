@@ -12,7 +12,7 @@ pub fn development_chain_spec() -> Result<ChainSpec, String> {
 	)
 	.with_name("Development")
 	.with_id("dev")
-	.with_chain_type(ChainType::Development)
+    .with_chain_type(ChainType::Development)
 	.with_genesis_config_preset_name(sp_genesis_builder::DEV_RUNTIME_PRESET)
 	.build())
 }
@@ -24,7 +24,7 @@ pub fn local_chain_spec() -> Result<ChainSpec, String> {
 	)
 	.with_name("Local Testnet")
 	.with_id("local_testnet")
-	.with_chain_type(ChainType::Local)
+    .with_chain_type(ChainType::Local)
 	.with_genesis_config_preset_name(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET)
 	.build())
 }
@@ -36,7 +36,7 @@ pub fn staging_chain_spec() -> Result<ChainSpec, String> {
 	)
 	.with_name("Fennel Staging")
 	.with_id("staging")
-	.with_chain_type(ChainType::Local)
+    .with_chain_type(ChainType::Local)
 	.with_genesis_config_preset_name("staging")
 	.with_boot_nodes(vec![
 		// Official Fennel network bootnodes
@@ -53,7 +53,7 @@ pub fn production_chain_spec() -> Result<ChainSpec, String> {
 	)
 	.with_name("Fennel Production")
 	.with_id("fennel_production")
-	.with_chain_type(ChainType::Live)
+    .with_chain_type(ChainType::Live)
 	.with_genesis_config_preset_name("production")
 	.with_boot_nodes(vec![
 		// Production bootnodes - will be populated dynamically in CI

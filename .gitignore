@@ -146,6 +146,7 @@ Makefile
 *.kubeconfig
 kubeconfig
 kubeconfig.*
+docs/kubernetes from prod/
 
 # Monitoring and metrics
 prometheus-data/
@@ -167,6 +168,9 @@ benchmarks/
 docs/_build/
 docs/.doctrees/
 docs/api/
+
+# Ignore specific docs that shouldn't be committed
+docs/whatistelemetry.md
 
 # Rust specific additional
 **/*.rlib
@@ -196,3 +200,10 @@ create-release-tag.sh
 PRODUCTION_SECRETS_SETUP.md
 RELEASE_PROCESS.md
 test-bootnode-injection.sh
+
+# Documentation upgrade guides (ignore)
+docs/Upgrades.md
+docs/Upgrades2.md
+docs/Upgrades3.md
+docs/Upgrades4.md
+docs/Upgrades5.md

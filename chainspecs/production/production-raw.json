@@ -56,7 +56,7 @@
   "name": "Fennel Production Network",
   "properties": {
     "ss58Format": 42,
-    "tokenDecimals": 18,
+    "tokenDecimals": 12,
     "tokenSymbol": "FNL"
   },
   "protocolId": "fenn",
