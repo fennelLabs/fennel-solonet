@@ -1,0 +1,40 @@
+# Staging overrides for the Fennel node Helm chart
+# This file is intentionally minimal; CI updates a few fields on publish.
+
+image:
+  repository: "ghcr.io/corruptedaesthetic/fennel-solonet"
+  tag: "dev-placeholder"   # Overwritten by CI (yaml-update-action)
+  digest: ""               # Overwritten by CI with the pushed image digest
+
+# CI sets this for tagged releases
+releaseTag: ""
+
+node:
+  # Use the staging preset embedded in the runtime (chainspec builder also outputs staging specs)
+  chain: "staging"
+
+  # When providing a remote chainspec, CI will also set the checksum here for verification.
+  # Leave URL empty by default; cluster-specific deployment can provide a URL if needed.
+  customChainspecUrl: ""
+  customChainspecSha256: ""
+
+  # Optional: staging usually runs authorities; override per-environment as needed
+  role: authority
+
+  # Example: expose metrics; RPC exposure should be fronted by ingress/reverse proxy if public
+  prometheus:
+    enabled: true
+    port: 9615
+
+  perNodeServices:
+    apiService:
+      enabled: true
+      type: ClusterIP
+      rpcPort: 9944
+      prometheusPort: 9615
+    p2pService:
+      enabled: true
+      type: NodePort
+      port: 30333
+
+
