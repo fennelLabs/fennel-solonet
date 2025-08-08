@@ -252,6 +252,11 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=sha,format=long
+          labels: |
+            org.opencontainers.image.title=Fennel Node
+            org.opencontainers.image.description=A Substrate-based blockchain node for the Fennel network with enhanced security and cryptographic verification
+            org.opencontainers.image.vendor=Fennel Network
+            org.opencontainers.image.licenses=Apache-2.0
       
       # ------------------------------------------------------------
       # PRODUCTION KEY EXPORT (using GitHub Secrets)
@@ -672,7 +677,7 @@ jobs:
                 | .protocolId = "fenn"
                 | .properties = {
                     "ss58Format": ($ss58|tonumber),
-                    "tokenDecimals": 18,
+                    "tokenDecimals": 12,
                     "tokenSymbol": "FNL"
                   }' "$SPEC" > tmp.json && mv tmp.json "$SPEC"
             
@@ -801,7 +806,7 @@ jobs:
                 | .protocolId = "fenn"
                 | .properties = {
                     "ss58Format": ($ss58|tonumber),
-                    "tokenDecimals": 18,
+                    "tokenDecimals": 12,
                     "tokenSymbol": "FNL"
                   }' "$SPEC" > tmp.json && mv tmp.json "$SPEC"
             
@@ -982,7 +987,7 @@ jobs:
               | .protocolId = "fenn"
               | .properties = {
                   "ss58Format": ($ss58|tonumber),
-                  "tokenDecimals": 18,
+                  "tokenDecimals": 12,
                   "tokenSymbol": "FNL"
                 }
               | .genesis = $original.genesis

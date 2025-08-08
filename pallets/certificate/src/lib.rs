@@ -43,7 +43,7 @@ pub mod pallet {
 		/// The identifier for the lock used to store certificate deposits.
 		type LockId: Get<LockIdentifier>;
 		/// The price of a certificate lock.
-		type LockPrice: Get<u32>;
+		type LockPrice: Get<BalanceOf<Self>>;
 	}
 
 	#[pallet::pallet]
@@ -99,8 +99,8 @@ pub mod pallet {
 			);
 			// Insert a placeholder value into storage - if the pair (who, recipient) exists, we
 			// know there's a certificate present for the pair, regardless of value.
-			T::Currency::set_lock(T::LockId::get(), &who, 10u32.into(), WithdrawReasons::all());
-            Self::deposit_event(Event::CertificateLock { account: who.clone(), amount: T::Currency::free_balance(&who) });
+			T::Currency::set_lock(T::LockId::get(), &who, T::LockPrice::get(), WithdrawReasons::all());
+            Self::deposit_event(Event::CertificateLock { account: who.clone(), amount: T::LockPrice::get() });
 			<CertificateList<T>>::try_mutate(
 				&who,
 				recipient.clone(),

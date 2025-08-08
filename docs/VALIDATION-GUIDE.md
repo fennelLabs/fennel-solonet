@@ -59,7 +59,7 @@ node:
 
 ### Our Configuration is Correct ✅
 
-In our `values-staging.yaml` and the new HelmRelease, we're using:
+In our Helm chart `values.yaml` (production-only) and the HelmRelease, we're using:
 
 ```yaml
 node:
@@ -94,7 +94,7 @@ The double `node.node` is because:
    cd Charts/fennel-node
    helm dependency update
    helm lint .
-   helm template test . -f values-staging.yaml > /tmp/test-output.yaml
+   helm template test . > /tmp/test-output.yaml
    grep storageClassName /tmp/test-output.yaml
    # Should show: storageClassName: local-path
    ```

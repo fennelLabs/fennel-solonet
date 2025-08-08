@@ -60,15 +60,13 @@ fn production_genesis(
 	initial_authorities: Vec<(AuraId, GrandpaId)>,
 	validator_stash_accounts: Vec<AccountId>,
 	root: AccountId,
-	endowed_accounts: Vec<AccountId>,
 ) -> Value {
 	// Production token distribution - all tokens to sudo account initially
-	let total_supply = 1_000_000_000_000_000_000u128; // 1 billion FNL tokens (18 decimals)
+	let total_supply = 1_000_000_000 * crate::UNIT; // 1 billion FNL tokens (12 decimals)
 	
-	let balances: Vec<(AccountId, u128)> = endowed_accounts
-		.iter()
-		.map(|account| (account.clone(), total_supply))
-		.collect();
+	// SECURITY: Only mint the total supply once to the root account
+	// Additional accounts can receive tokens via transfers after genesis
+	let balances = vec![(root.clone(), total_supply)];
 	
 	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig {
@@ -101,11 +99,20 @@ fn testnet_genesis(
 ) -> Value {
 	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig {
-			balances: endowed_accounts
-				.iter()
-				.cloned()
-				.map(|k| (k, 1u128 << 60))  // Everyone gets the same amount: 2^60 tokens (~1.15 billion)
-				.collect::<Vec<_>>(),
+			// SECURITY: Controlled testnet distribution - give specific amounts instead of
+			// multiplying by number of accounts to prevent accidental hyperinflation
+			balances: {
+				let mut balances = Vec::new();
+				// Give the root account a large amount for testing
+				balances.push((root.clone(), 1_000_000_000 * crate::UNIT)); // 1B FNL for root
+				// Give each other endowed account a reasonable testing amount
+				for account in endowed_accounts.iter() {
+					if account != &root {
+						balances.push((account.clone(), 1_000_000 * crate::UNIT)); // 1M FNL each
+					}
+				}
+				balances
+			},
 		},
 		sudo: SudoConfig { key: Some(root.clone()) },
 		validator_manager: pallet_validator_manager::GenesisConfig {
@@ -245,10 +252,8 @@ pub fn production_config_genesis() -> Value {
 		],
 		// 2) Validators: Production stash accounts from environment
 		vec![val1_stash.clone(), val2_stash.clone()],
-		// 3) Sudo/root key: Production admin account from environment
+		// 3) Sudo/root key: Production admin account gets all tokens for controlled distribution
 		sudo_account.clone(),
-		// 4) Endowed accounts: Give all tokens to sudo account for centralized initial distribution
-		vec![sudo_account],
 	)
 }
 

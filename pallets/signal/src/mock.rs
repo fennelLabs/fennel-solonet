@@ -63,13 +63,21 @@ impl frame_support::traits::Get<[u8; 8]> for SignalLockId {
     }
 }
 
+// Define a LockPrice type for the signal pallet
+pub struct SignalLockPrice;
+impl frame_support::traits::Get<u128> for SignalLockPrice {
+    fn get() -> u128 {
+        10
+    }
+}
+
 impl pallet_signal::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 	type Currency = Balances;
 	type MaxSize = ConstU32<1024>;
     type LockId = SignalLockId;
-	type LockPrice = ConstU32<10>;
+	type LockPrice = SignalLockPrice;
 }
 
 // Build genesis storage according to the mock runtime.
