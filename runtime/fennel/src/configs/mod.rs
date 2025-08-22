@@ -109,14 +109,16 @@ impl pallet_aura::Config for Runtime {
 
 impl pallet_grandpa::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-
-	type WeightInfo = ();
-	type MaxAuthorities = ConstU32<32>;
+	type MaxAuthorities = ConstU32<64>;
 	type MaxNominators = ConstU32<0>;
+	// No equivocation tracking -> keep this zero
 	type MaxSetIdSessionEntries = ConstU64<0>;
-
-	type KeyOwnerProof = sp_core::Void;
+	// Generic proof type; OK even if not used
+	type KeyOwnerProof = sp_session::MembershipProof;
+	// Turn off offences wiring entirely
 	type EquivocationReportSystem = ();
+	// Use unit type for weights - safe fallback for pallet-grandpa 40.0.0
+	type WeightInfo = ();
 }
 
 impl pallet_timestamp::Config for Runtime {
