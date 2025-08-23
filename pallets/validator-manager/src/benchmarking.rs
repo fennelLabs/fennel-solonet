@@ -6,7 +6,6 @@ use super::*;
 use frame_benchmarking::v2::*;
 use frame_benchmarking::account;
 use codec::Decode;
-use sp_runtime::traits::TrailingZeroInput;
 
 fn validator_id<T: Config>(seed: u32) -> T::ValidatorId {
     let account: T::AccountId = account("validator", seed, 0);
@@ -26,7 +25,7 @@ mod benchmarks {
         // Set session keys for all validators before registering
         // This is required now that we check for keys existence
         for (i, validator) in validators.iter().enumerate() {
-            let account: T::AccountId = account("validator", i as u32, 0);
+            let _account: T::AccountId = account("validator", i as u32, 0);
             // Create dummy session keys for benchmarking
             let keys = T::Keys::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes())
                 .expect("Failed to decode zero keys");

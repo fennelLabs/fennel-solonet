@@ -172,6 +172,9 @@ docs/api/
 # Ignore specific docs that shouldn't be committed
 docs/whatistelemetry.md
 
+# Private internal documentation (never commit)
+docs/INTERNALDOCSPRIVATE/
+
 # Rust specific additional
 **/*.rlib
 **/*.rmeta
