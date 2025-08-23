@@ -1,13 +1,18 @@
 use crate::{
-	benchmarking::{inherent_benchmark_data, RemarkBuilder, TransferKeepAliveBuilder},
 	chain_spec,
 	cli::{Cli, Subcommand},
 	service,
 };
+#[cfg(feature = "bench-cli")]
+use crate::benchmarking::{inherent_benchmark_data, RemarkBuilder, TransferKeepAliveBuilder};
+#[cfg(feature = "bench-cli")]
 use frame_benchmarking_cli::{BenchmarkCmd, ExtrinsicFactory, SUBSTRATE_REFERENCE_HARDWARE};
 use sc_cli::SubstrateCli;
 use sc_service::PartialComponents;
-use fennel_node_runtime::{Block, EXISTENTIAL_DEPOSIT};
+use fennel_node_runtime::Block;
+#[cfg(feature = "bench-cli")]
+use fennel_node_runtime::EXISTENTIAL_DEPOSIT;
+#[cfg(feature = "bench-cli")]
 use sp_keyring::Sr25519Keyring;
 
 impl SubstrateCli for Cli {
@@ -103,6 +108,7 @@ pub fn run() -> sc_cli::Result<()> {
 				Ok((cmd.run(client, backend, Some(aux_revert)), task_manager))
 			})
 		},
+		#[cfg(feature = "bench-cli")]
 		Some(Subcommand::Benchmark(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 
@@ -180,7 +186,7 @@ pub fn run() -> sc_cli::Result<()> {
 		None => {
 			let runner = cli.create_runner(&cli.run)?;
 			runner.run_node_until_exit(|config| async move {
-				match config.network.network_backend.unwrap_or_default() {
+				match config.network.network_backend {
 					sc_network::config::NetworkBackendType::Libp2p => service::new_full::<
 						sc_network::NetworkWorker<
 							fennel_node_runtime::opaque::Block,
