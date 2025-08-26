@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Fennel Node Helm Repository</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .header { color: #2c3e50; }
+        .code { background-color: #f4f4f4; padding: 10px; border-radius: 5px; }
+        .chart-list { margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1 class="header">🌿 Fennel Node Helm Repository</h1>
+    <p>This repository contains Helm charts for the Fennel blockchain node.</p>
+    
+    <h2>Usage</h2>
+    <div class="code">
+        <strong>Add this repository:</strong><br>
+        <code>helm repo add fennel https://corruptedaesthetic.github.io/fennel-solonet</code><br><br>
+        
+        <strong>Update repositories:</strong><br>
+        <code>helm repo update</code><br><br>
+        
+        <strong>Install Fennel node:</strong><br>
+        <code>helm install fennel-node fennel/fennel-node</code>
+    </div>
+    
+    <h2>Available Charts</h2>
+    <div class="chart-list">
+        <ul>
+            <li><strong>fennel-node</strong> - Fennel blockchain node deployment</li>
+        </ul>
+    </div>
+    
+    <h2>Repository Files</h2>
+    <ul>
+        <li><a href="charts/">charts/</a> - Chart packages and index</li>
+        <li><a href="charts/index.yaml">charts/index.yaml</a> - Helm repository index</li>
+    </ul>
+    
+    <hr>
+    <p><small>Generated automatically by GitHub Actions</small></p>
+</body>
+</html>
