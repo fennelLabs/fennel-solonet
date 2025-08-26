@@ -2859,9 +2859,9 @@ dependencies = [
 
 [[package]]
 name = "frame-benchmarking-cli"
-version = "47.0.0"
+version = "47.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "873cb5fd4e7f94dbb80561e29c20da73da20f74f8dc35809fbb0e2a5d35ed7b0"
+checksum = "c9fa75878719a5890579797ba5c48edd2d70e4be77dab5f8bd473b90a76f80e8"
 dependencies = [
  "Inflector",
  "array-bytes",
