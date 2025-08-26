@@ -136,6 +136,8 @@ impl pallet_validator_manager::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type PrivilegedOrigin = frame_system::EnsureRoot<AccountId>;
     type MinAuthorities = MinAuthorities;
+    type SessionPeriod = ConstU32<20>; // 20 blocks per session for testing
+    type SessionOffset = ConstU32<0>;  // No offset for testing
     type ValidatorOf = crate::ValidatorOf<Test>;
     type WeightInfo = ();
 }
@@ -159,7 +161,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
     .assimilate_storage(&mut t)
     .unwrap();
     balances::GenesisConfig::<Test> {
-        balances: vec![(ValidatorId(1), 1000), (ValidatorId(2), 1000), (ValidatorId(3), 1000), (ValidatorId(4), 1000)],
+        balances: vec![(ValidatorId(1), 1000), (ValidatorId(2), 1000), (ValidatorId(3), 1000), (ValidatorId(4), 1000), (ValidatorId(5), 1000)],
         ..Default::default()
     }
     .assimilate_storage(&mut t)

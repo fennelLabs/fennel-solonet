@@ -1,0 +1,24 @@
+{{- if .Values.node.perNodeServices.apiService.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "fennel-node.fullname" . }}-api
+  labels:
+    {{- include "fennel-node.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  type: {{ .Values.node.perNodeServices.apiService.type }}
+  ports:
+    - port: {{ .Values.node.perNodeServices.apiService.rpcPort }}
+      targetPort: rpc
+      protocol: TCP
+      name: rpc
+    {{- if .Values.node.prometheus.enabled }}
+    - port: {{ .Values.node.prometheus.port }}
+      targetPort: prometheus
+      protocol: TCP
+      name: prometheus
+    {{- end }}
+  selector:
+    {{- include "fennel-node.selectorLabels" . | nindent 4 }}
+{{- end }} 

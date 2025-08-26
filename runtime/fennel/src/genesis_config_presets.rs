@@ -24,6 +24,72 @@ use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_genesis_builder::{self, PresetId};
 use sp_keyring::Sr25519Keyring;
 use crate::SessionKeys;
+use sp_core::{crypto::Ss58Codec, ByteArray};
+use sp_core::crypto::AccountId32;
+
+/// Identifier for the staging preset.
+pub const STAGING_RUNTIME_PRESET: &str = "staging";
+
+/// Identifier for the production preset.
+pub const PRODUCTION_RUNTIME_PRESET: &str = "production";
+
+// Helper function to parse hex-encoded public key from environment variable
+fn parse_aura_public_key(hex_str: &str) -> AuraId {
+	let bytes = hex::decode(hex_str.trim_start_matches("0x"))
+		.expect("Invalid hex in Aura public key");
+	AuraId::from_slice(&bytes)
+		.expect("Invalid Aura public key format")
+}
+
+// Helper function to parse hex-encoded GRANDPA public key from environment variable  
+fn parse_grandpa_public_key(hex_str: &str) -> GrandpaId {
+	let bytes = hex::decode(hex_str.trim_start_matches("0x"))
+		.expect("Invalid hex in GRANDPA public key");
+	GrandpaId::from_slice(&bytes)
+		.expect("Invalid GRANDPA public key format")
+}
+
+// Helper function to parse SS58 account ID from environment variable
+fn parse_account_id(ss58_str: &str) -> AccountId {
+	AccountId32::from_ss58check(ss58_str)
+		.expect("Invalid SS58 account ID")
+}
+
+// Returns the genesis config for production with proper validator handling
+fn production_genesis(
+	initial_authorities: Vec<(AuraId, GrandpaId)>,
+	validator_stash_accounts: Vec<AccountId>,
+	root: AccountId,
+) -> Value {
+	// Production token distribution - all tokens to sudo account initially
+	let total_supply = 1_000_000_000 * crate::UNIT; // 1 billion FNL tokens (12 decimals)
+	
+	// SECURITY: Only mint the total supply once to the root account
+	// Additional accounts can receive tokens via transfers after genesis
+	let balances = vec![(root.clone(), total_supply)];
+	
+	build_struct_json_patch!(RuntimeGenesisConfig {
+		balances: BalancesConfig {
+			balances,
+		},
+		sudo: SudoConfig { key: Some(root.clone()) },
+		validator_manager: pallet_validator_manager::GenesisConfig {
+			initial_validators: validator_stash_accounts.clone(),
+		},
+		session: pallet_session::GenesisConfig {
+			keys: initial_authorities.iter().zip(validator_stash_accounts.iter()).map(|(session_keys, stash_account)| {
+				(
+					stash_account.clone(),
+					stash_account.clone(),
+					SessionKeys {
+						aura: session_keys.0.clone(),
+						grandpa: session_keys.1.clone(),
+					}
+				)
+			}).collect::<Vec<_>>(),
+		},
+	})
+}
 
 // Returns the genesis config presets populated with given parameters.
 fn testnet_genesis(
@@ -33,11 +99,20 @@ fn testnet_genesis(
 ) -> Value {
 	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig {
-			balances: endowed_accounts
-				.iter()
-				.cloned()
-				.map(|k| (k, 1u128 << 60))
-				.collect::<Vec<_>>(),
+			// SECURITY: Controlled testnet distribution - give specific amounts instead of
+			// multiplying by number of accounts to prevent accidental hyperinflation
+			balances: {
+				let mut balances = Vec::new();
+				// Give the root account a large amount for testing
+				balances.push((root.clone(), 1_000_000_000 * crate::UNIT)); // 1B FNL for root
+				// Give each other endowed account a reasonable testing amount
+				for account in endowed_accounts.iter() {
+					if account != &root {
+						balances.push((account.clone(), 1_000_000 * crate::UNIT)); // 1M FNL each
+					}
+				}
+				balances
+			},
 		},
 		sudo: SudoConfig { key: Some(root.clone()) },
 		validator_manager: pallet_validator_manager::GenesisConfig {
@@ -111,11 +186,97 @@ pub fn local_config_genesis() -> Value {
 	)
 }
 
+/// Return the staging genesis config preset.
+pub fn staging_config_genesis() -> Value {
+	testnet_genesis(
+		// 1) Authorities: Alice & Bob Aura/Grandpa IDs
+		vec![
+			(
+				Sr25519Keyring::Alice.public().into(),
+				sp_keyring::Ed25519Keyring::Alice.public().into(),
+			),
+			(
+				Sr25519Keyring::Bob.public().into(),
+				sp_keyring::Ed25519Keyring::Bob.public().into(),
+			),
+		],
+		// 2) Sudo/root key: Alice
+		Sr25519Keyring::Alice.to_account_id(),
+		// 3) Endowed accounts (Alice, Bob, and their stashes)
+		vec![
+			Sr25519Keyring::Alice.to_account_id(),
+			Sr25519Keyring::Bob.to_account_id(),
+			Sr25519Keyring::AliceStash.to_account_id(),
+			Sr25519Keyring::BobStash.to_account_id(),
+		],
+	)
+}
+
+/// Return the production genesis config preset.
+/// Uses compile-time environment variables for all public keys and account IDs.
+/// Private keys are managed separately via Vault at runtime.
+/// 
+/// This function is only available when all required environment variables are set at compile time.
+pub fn production_config_genesis() -> Value {
+	// Parse production validator keys from environment variables
+	// Use option_env! to handle cases where variables might not be set
+	let val1_aura = parse_aura_public_key(
+		option_env!("VAL1_AURA_PUB").expect("VAL1_AURA_PUB environment variable required for production preset")
+	);
+	let val1_grandpa = parse_grandpa_public_key(
+		option_env!("VAL1_GRANDPA_PUB").expect("VAL1_GRANDPA_PUB environment variable required for production preset")
+	);
+	let val2_aura = parse_aura_public_key(
+		option_env!("VAL2_AURA_PUB").expect("VAL2_AURA_PUB environment variable required for production preset")
+	);
+	let val2_grandpa = parse_grandpa_public_key(
+		option_env!("VAL2_GRANDPA_PUB").expect("VAL2_GRANDPA_PUB environment variable required for production preset")
+	);
+	
+	// Parse production account IDs from environment variables
+	let sudo_account = parse_account_id(
+		option_env!("SUDO_SS58").expect("SUDO_SS58 environment variable required for production preset")
+	);
+	let val1_stash = parse_account_id(
+		option_env!("VAL1_STASH_SS58").expect("VAL1_STASH_SS58 environment variable required for production preset")
+	);
+	let val2_stash = parse_account_id(
+		option_env!("VAL2_STASH_SS58").expect("VAL2_STASH_SS58 environment variable required for production preset")
+	);
+	
+	production_genesis(
+		// 1) Authorities: Production validator session keys from environment
+		vec![
+			(val1_aura, val1_grandpa),
+			(val2_aura, val2_grandpa),
+		],
+		// 2) Validators: Production stash accounts from environment
+		vec![val1_stash.clone(), val2_stash.clone()],
+		// 3) Sudo/root key: Production admin account gets all tokens for controlled distribution
+		sudo_account.clone(),
+	)
+}
+
 /// Provides the JSON representation of predefined genesis config for given `id`.
 pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 	let patch = match id.as_ref() {
 		sp_genesis_builder::DEV_RUNTIME_PRESET => development_config_genesis(),
 		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => local_config_genesis(),
+		STAGING_RUNTIME_PRESET => staging_config_genesis(),
+		PRODUCTION_RUNTIME_PRESET => {
+			// Only allow production preset if all environment variables are available
+			if option_env!("SUDO_SS58").is_some() &&
+				option_env!("VAL1_AURA_PUB").is_some() &&
+				option_env!("VAL1_GRANDPA_PUB").is_some() &&
+				option_env!("VAL1_STASH_SS58").is_some() &&
+				option_env!("VAL2_AURA_PUB").is_some() &&
+				option_env!("VAL2_GRANDPA_PUB").is_some() &&
+				option_env!("VAL2_STASH_SS58").is_some() {
+				production_config_genesis()
+			} else {
+				return None;
+			}
+		},
 		_ => return None,
 	};
 	Some(
@@ -127,8 +288,23 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 
 /// List of supported presets.
 pub fn preset_names() -> Vec<PresetId> {
-	vec![
+	let mut presets = vec![
 		PresetId::from(sp_genesis_builder::DEV_RUNTIME_PRESET),
 		PresetId::from(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET),
-	]
+		PresetId::from(STAGING_RUNTIME_PRESET),
+	];
+	
+	// Only include production preset if all required environment variables are available
+	// Check if production environment variables are set at compile time
+	if option_env!("SUDO_SS58").is_some() &&
+		option_env!("VAL1_AURA_PUB").is_some() &&
+		option_env!("VAL1_GRANDPA_PUB").is_some() &&
+		option_env!("VAL1_STASH_SS58").is_some() &&
+		option_env!("VAL2_AURA_PUB").is_some() &&
+		option_env!("VAL2_GRANDPA_PUB").is_some() &&
+		option_env!("VAL2_STASH_SS58").is_some() {
+		presets.push(PresetId::from(PRODUCTION_RUNTIME_PRESET));
+	}
+	
+	presets
 }

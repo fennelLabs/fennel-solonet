@@ -7,6 +7,206 @@
 .DS_Store
 
 # direnv files
-.envrc
+.envrc.local
 .direnv
+
+# Blockchain data directories
 chain/
+data/
+db/
+chains/
+**/chains/
+**/db/
+
+# Local node data
+alice/
+bob/
+charlie/
+dave/
+eve/
+ferdie/
+
+# Substrate/Polkadot specific
+*.wasm
+*.compact.wasm
+srtool-digest.json
+runtime/*/target/
+
+# Chain specifications (if generated locally)
+# Note: Keep committed chainspecs in chainspecs/ directory
+*.json.backup
+*-raw.json.tmp
+*-local.json
+
+# Development and testing
+.local/
+tmp/
+temp/
+logs/
+*.log
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# SECURITY: Never commit private keys or secrets
+# Bootnode private keys
+bootnodes/keys/
+*.key
+**/keys/
+# Temporary key files
+*_new.key
+*_peer_id_new.txt
+# Session keys and validator keys
+session-keys/
+validator-keys/
+keystore/
+**/keystore/
+# Other sensitive files
+*.pem
+*.p12
+*.pfx
+
+# Dependencies
+node_modules/
+vendor/
+
+# Build artifacts
+dist/
+build/
+release/
+
+# Platform specific
+Thumbs.db
+ehthumbs.db
+
+# Docker artifacts
+.dockerignore
+docker-compose.override.yml
+*.dockerfile.local
+
+# CI/CD artifacts
+.github/workflows/*.local.yml
+.github/workflows/*.test.yml
+.github/workflows/*.backup.yml
+
+# Environment files
+.env
+.env.local
+.env.production
+.env.staging
+.env.test
+
+# Backup and temporary files
+*.bak
+*.tmp
+*.temp
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# GPG and signing artifacts
+*.asc
+*.gpg
+*.sig
+.gnupg/
+
+# Exception: Allow the release signing public key (needed for tag verification)
+!.github/release-signing.pub.asc
+
+# Helm chart artifacts
+Charts/*/charts/
+Charts/*/requirements.lock
+*.tgz
+
+# Local testing and development files
+.github/act-testing.mk
+.github/event-release.json
+.github/event-tag-push.json
+docs/original dockerfile.txt
+docs/original githubactions workflow.txt
+.actrc
+ACT_TESTING_SUMMARY.md
+.secrets
+test-workflow.sh
+dockerfiles/
+Makefile
+
+# Kubernetes artifacts
+*.kubeconfig
+kubeconfig
+kubeconfig.*
+docs/kubernetes from prod/
+
+# Monitoring and metrics
+prometheus-data/
+grafana-data/
+*.prom
+
+# Network and connectivity
+*.pcap
+*.cap
+network-logs/
+
+# Benchmark and performance data
+benchmarks/
+*.bench
+*.prof
+*.flamegraph
+
+# Documentation build artifacts
+docs/_build/
+docs/.doctrees/
+docs/api/
+
+# Ignore specific docs that shouldn't be committed
+docs/whatistelemetry.md
+
+# Private internal documentation (never commit)
+docs/INTERNALDOCSPRIVATE/
+
+# Rust specific additional
+**/*.rlib
+**/*.rmeta
+**/*.d
+rust-toolchain.toml.bak
+rustfmt.toml.bak
+
+# Project-specific files to ignore
+docs/ENHANCED-CICD.md
+docs/CRYPTOGRAPHIC-VERSION-UNITY.md
+scripts/init.sh
+scripts/local-k3d-setup.sh
+scripts/package-chart.sh
+scripts/run_alice.sh
+scripts/run_bob.sh
+scripts/run_charlie.sh
+scripts/run_dave.sh
+scripts/run_eve.sh
+scripts/run-benchmarks.sh
+scripts/staging-external-setup.sh
+scripts/test-chart.sh
+scripts/test-helm-chart.sh
+scripts/test-staging-build.sh
+scripts/validate-chart.sh
+create-release-tag.sh
+PRODUCTION_SECRETS_SETUP.md
+RELEASE_PROCESS.md
+test-bootnode-injection.sh
+
+# Documentation upgrade guides (ignore)
+docs/Upgrades.md
+docs/Upgrades2.md
+docs/Upgrades3.md
+docs/Upgrades4.md
+docs/Upgrades5.md

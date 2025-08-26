@@ -1,0 +1,143 @@
+# Base image settings (overwritten in CI)
+image:
+  repository: "ghcr.io/corruptedaesthetic/fennel-solonet"
+  tag:        "dev-placeholder"
+  digest:     ""  # Image digest for cryptographic verification (set by CI)
+  pullPolicy: IfNotPresent
+
+# Release information (set by CI for tagged releases)
+releaseTag: ""
+
+# OFFICIAL PARITY PATTERN: Init containers configuration
+initContainers:
+  downloadChainspec:
+    image:
+      repository: docker.io/alpine
+      tag: latest
+    resources: {}
+    debug: false
+  persistGeneratedNodeKey:
+    resources: {}
+    debug: false
+
+# ConfigMap name holding the chain spec (overwritten in CI)
+# Production-grade defaults (can all be overridden in env-specific files)
+
+# Storage class for the Parity node subchart
+storageClass: "fast-ssd"    # This gets passed to the Parity node chart
+
+# Parity node chart configuration
+node:
+  # Name of the chain
+  chain: ""
+  # Command to run within the container
+  command: "fennel-node"
+  # Number of replicas to deploy
+  replicas: 1
+  # Type of the node. One of: full, authority, validator, collator, light
+  role: authority
+  # Automatically generate and persist node key
+  persistGeneratedNodeKey: false
+  
+  # OFFICIAL PARITY PATTERN: Use the file defined in `node.customChainspecPath` as the chainspec. 
+  # Ensure that the file is either mounted or generated with an init container.
+  customChainspec: false
+  # Node may require custom name for chainspec file.
+  # Note: path should start with /chain-data/ since this folder mount in init container download-chainspec.
+  customChainspecPath: "/chain-data/chainspec.json"
+  # URL to retrieve custom chain spec (OFFICIAL PARITY PATTERN)
+  customChainspecUrl: ""
+  # SHA-256 hash of the chainspec for verification (set by CI)
+  customChainspecSha256: ""
+  # Replace chain spec if it already exists
+  forceDownloadChainspec: false
+
+  # Chain data configuration
+  chainData:
+    # Database backend engine to use
+    database: rocksdb
+    # Set the amount of blocks to retain.
+    # If set to 0 archive node will be run.
+    pruning: 1000
+    # Storage class to use for persistent volume
+    storageClass: "fast-ssd"
+    # Size of the volume for chain data
+    volumeSize: 100Gi
+    # Path on the volume to store chain data
+    chainPath: ""
+    
+    # Chain snapshot configuration (disabled by default)
+    chainSnapshot:
+      enabled: false
+      method: http-single-tar
+      url: ""
+
+  # Configure chain keystore parameters
+  chainKeystore:
+    # Storage class to use for persistent volume
+    storageClass: "fast-ssd"
+    # Size of the volume
+    volumeSize: 10Mi
+    # Access mode of the volume
+    accessModes: ["ReadWriteOnce"]
+
+  # Flags to add to the binary
+  flags: []
+
+  # Keys to use by the node (for validators)
+  keys: []
+
+  # Expose metrics via Prometheus format in /metrics endpoint
+  prometheus:
+    enabled: true
+    port: 9615
+
+  # Service Monitor of Prometheus-Operator
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    scrapeTimeout: 10s
+
+  # Configuration of individual services of the node
+  perNodeServices:
+    apiService:
+      # If enabled, generic service to expose common node APIs
+      enabled: true
+      type: ClusterIP
+      rpcPort: 9944
+      prometheusPort: 9615
+    
+    # P2P service configuration
+    p2pService:
+      enabled: true
+      type: NodePort
+      port: 30333
+      publishUnreadyAddresses: true
+
+  # Resource limits & requests
+  resources: {}
+
+  # Environment variables to set for the main container
+  extraEnvVars: []
+
+# Service account configuration
+serviceAccount:
+  create: true
+  createRoleBinding: true
+  annotations: {}
+  name: ""
+
+# Pod security context
+podSecurityContext:
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+# Additional init containers (if needed)
+extraInitContainers: []
+
+# Additional volumes (if needed)
+extraVolumes: []
+
+# Additional volume mounts (if needed)
+extraVolumeMounts: []

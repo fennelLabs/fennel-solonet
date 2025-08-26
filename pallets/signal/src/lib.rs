@@ -45,7 +45,7 @@ pub mod pallet {
 		// type LockId: Parameter + Member + MaxEncodedLen + Ord + Copy;
 		type LockId: Get<LockIdentifier>;
 		/// The price of a signal lock.
-		type LockPrice: Get<u32>;
+		type LockPrice: Get<BalanceOf<Self>>;
 	}
 
 	#[pallet::pallet]
@@ -157,10 +157,10 @@ pub mod pallet {
 			T::Currency::set_lock(
 				T::LockId::get(),
 				&who,
-				T::LockPrice::get().into(),
+				T::LockPrice::get(),
 				WithdrawReasons::all(),
 			);
-            Self::deposit_event(Event::SignalLock { account: who.clone(), amount: T::LockPrice::get().into() });
+            Self::deposit_event(Event::SignalLock { account: who.clone(), amount: T::LockPrice::get() });
             Self::deposit_event(Event::RatingSignalSent { who });
             Ok(().into())
 		}
@@ -188,10 +188,10 @@ pub mod pallet {
 			T::Currency::extend_lock(
 				T::LockId::get(),
 				&who,
-				T::LockPrice::get().into(),
+				T::LockPrice::get(),
 				WithdrawReasons::all(),
 			);
-            Self::deposit_event(Event::SignalLockExtended { account: who.clone(), amount: T::LockPrice::get().into() });
+            Self::deposit_event(Event::SignalLockExtended { account: who.clone(), amount: T::LockPrice::get() });
             Self::deposit_event(Event::RatingSignalUpdated { who });
             Ok(().into())
 		}

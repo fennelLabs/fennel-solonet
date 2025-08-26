@@ -39,6 +39,7 @@ pub enum Subcommand {
 
 	/// Sub-commands concerned with benchmarking.
 	#[command(subcommand)]
+	#[cfg(feature = "bench-cli")]
 	Benchmark(frame_benchmarking_cli::BenchmarkCmd),
 
 	/// Db meta columns information.

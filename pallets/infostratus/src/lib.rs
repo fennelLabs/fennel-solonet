@@ -46,7 +46,7 @@ pub mod pallet {
 		/// The identifier for the lock used to store deposits.
         type LockId: Get<LockIdentifier>;
 		/// The price of a lock.
-        type LockPrice: Get<u32>;
+        type LockPrice: Get<BalanceOf<Self>>;
     }
 
     #[pallet::pallet]
@@ -117,8 +117,8 @@ pub mod pallet {
             );
 			// Insert a placeholder value into storage - if the pair (who, recipient) exists, we
 			// know there's a certificate present for the pair, regardless of value.
-            T::Currency::set_lock(T::LockId::get(), &who, 10u32.into(), WithdrawReasons::all());
-            Self::deposit_event(Event::InfostratusLock { account: who.clone(), amount: T::Currency::free_balance(&who) });
+            T::Currency::set_lock(T::LockId::get(), &who, T::LockPrice::get(), WithdrawReasons::all());
+            Self::deposit_event(Event::InfostratusLock { account: who.clone(), amount: T::LockPrice::get() });
             <SubmissionsList<T>>::try_mutate(
                 &who,
                 resource_location.clone(),
@@ -152,8 +152,8 @@ pub mod pallet {
                 !SubmissionsList::<T>::get(&poster, &resource_location),
                 Error::<T>::SubmissionAlreadyAssigned
             );
-            T::Currency::set_lock(T::LockId::get(), &who, 10u32.into(), WithdrawReasons::all());
-            Self::deposit_event(Event::InfostratusLock { account: who.clone(), amount: T::Currency::free_balance(&who) });
+            T::Currency::set_lock(T::LockId::get(), &who, T::LockPrice::get(), WithdrawReasons::all());
+            Self::deposit_event(Event::InfostratusLock { account: who.clone(), amount: T::LockPrice::get() });
             <AssignmentsList<T>>::try_mutate(
                 &who,
                 resource_location.clone(),

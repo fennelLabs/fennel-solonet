@@ -1,0 +1,22 @@
+{{- if .Values.node.perNodeServices.p2pService.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "fennel-node.fullname" . }}-p2p
+  labels:
+    {{- include "fennel-node.labels" . | nindent 4 }}
+    app.kubernetes.io/component: p2p
+spec:
+  type: {{ .Values.node.perNodeServices.p2pService.type }}
+  publishUnreadyAddresses: {{ .Values.node.perNodeServices.p2pService.publishUnreadyAddresses }}
+  ports:
+    - port: {{ .Values.node.perNodeServices.p2pService.port }}
+      targetPort: p2p
+      protocol: TCP
+      name: p2p
+      {{- if eq .Values.node.perNodeServices.p2pService.type "NodePort" }}
+      nodePort: {{ .Values.node.perNodeServices.p2pService.port }}
+      {{- end }}
+  selector:
+    {{- include "fennel-node.selectorLabels" . | nindent 4 }}
+{{- end }} 

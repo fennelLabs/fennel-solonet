@@ -1,1 +1,107 @@
+# Reduce Docker build context size to save space and transfer time
+
+# Build artifacts
 /target/
+target/
+**/**/target/
+*.wasm
+srtool-digest.json
+
+# Git files
+.git
+.gitignore
+.gitattributes
+
+# CI/CD files
+.github/workflows/
+.github/dependabot.yml
+.github/ISSUE_TEMPLATE/
+.github/PULL_REQUEST_TEMPLATE/
+.github/event-*.json
+.github/act-*.mk
+
+# Documentation
+README.md
+RELEASE_PROCESS.md
+PRODUCTION_SECRETS_SETUP.md
+docs/
+*.md
+
+# Development files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Test files
+tests/
+test-*.sh
+
+# Docker files (except Dockerfile itself)
+docker-compose*.yml
+*.dockerfile.local
+
+# Build scripts and local files
+scripts/
+Charts/
+build.log
+arm64-debug.log
+create-release-tag.sh
+Makefile
+
+# Dependencies that aren't needed in container
+node_modules/
+vendor/
+
+# Local data directories
+data/
+chains/
+alice/
+bob/
+charlie/
+dave/
+eve/
+ferdie/
+
+# Keys and secrets
+keystore/
+session-keys/
+validator-keys/
+*.key
+*.pem
+*.p12
+*.pfx
+
+# Environment files
+.env*
+
+# Backup files
+*.bak
+*.tmp
+*.backup
+
+# OS generated files
+.Trashes
+ehthumbs.db
+
+# ACT testing files
+ACT_TESTING_SUMMARY.md
+.actrc
+
+# Archive files
+*.tar.gz
+*.zip
+*.tgz
+
+# Log files
+*.log
+logs/
+
+# Benchmarks
+benchmarks/
+*.bench
+*.prof
+*.flamegraph

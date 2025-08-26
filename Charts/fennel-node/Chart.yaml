@@ -1,0 +1,27 @@
+apiVersion: v2
+name: fennel-node
+description: A Helm chart for deploying Fennel Substrate nodes with enhanced security and cryptographic verification
+type: application
+version: 0.4.3
+appVersion: "0.4.3"
+home: "https://github.com/corruptedaesthetic/fennel-solonet"
+sources:
+  - "https://github.com/corruptedaesthetic/fennel-solonet"
+maintainers:
+  - name: corruptedaesthetic
+keywords:
+  - blockchain
+  - substrate
+  - polkadot
+  - validator
+  - solochain
+  - fennel
+
+# Dependencies - using Parity's node chart
+dependencies:
+  - name: node                  # must match the 'name:' in Parity's Chart.yaml
+    version: "5.15.0"           # Latest Parity chart version
+    repository: "https://paritytech.github.io/helm-charts"
+    condition: node.enabled
+
+

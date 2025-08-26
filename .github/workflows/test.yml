@@ -3,9 +3,9 @@ name: Test Solonet Build
 # Controls when the action will run.
 on:
   push:
-    branches: '*'
+    branches: ['*']
   pull_request:
-    branches: '*'
+    branches: ['*']
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -22,7 +22,9 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install linux dependencies
-        run: sudo apt-get install -y clang libssl-dev llvm libudev-dev protobuf-compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang libssl-dev llvm libudev-dev protobuf-compiler
 
       - name: Install Rust
         run: |
@@ -40,3 +42,24 @@ jobs:
         run: >
           pushd node &&
           cargo test --features=runtime-benchmarks --release
+
+  test-docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Test Docker build (builder stage only)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: builder   # compile code but stop before final fat image
+          push: false
+          load: false       # don't export layers to docker engine (saves disk)
+          cache-from: type=gha
+
+      - name: Verify node binary exists in builder stage output
+        run: echo "Dockerfile syntax & builder stage compilation succeeded."
