@@ -1278,7 +1278,7 @@ jobs:
           grep -E "^(version|appVersion):" Charts/fennel-node/Chart.yaml
 
       - name: Update base values.yaml
-        uses: fjogeleit/yaml-update-action@v0.13.2
+        uses: fjogeleit/yaml-update-action@v0.16.1
         with:
           valueFile: 'Charts/fennel-node/values.yaml'
           propertyPath: 'image.tag'
@@ -1286,7 +1286,7 @@ jobs:
           commitChange: false
 
       - name: Update base values.yaml with digest
-        uses: fjogeleit/yaml-update-action@v0.13.2
+        uses: fjogeleit/yaml-update-action@v0.16.1
         with:
           valueFile: 'Charts/fennel-node/values.yaml'
           propertyPath: 'image.digest'
@@ -1294,7 +1294,7 @@ jobs:
           commitChange: false
 
       - name: Update staging values.yaml
-        uses: fjogeleit/yaml-update-action@v0.13.2
+        uses: fjogeleit/yaml-update-action@v0.16.1
         with:
           valueFile: 'Charts/fennel-node/values-staging.yaml'
           propertyPath: 'image.tag'
@@ -1302,7 +1302,7 @@ jobs:
           commitChange: false
 
       - name: Update staging values.yaml with digest
-        uses: fjogeleit/yaml-update-action@v0.13.2
+        uses: fjogeleit/yaml-update-action@v0.16.1
         with:
           valueFile: 'Charts/fennel-node/values-staging.yaml'
           propertyPath: 'image.digest'
@@ -1311,7 +1311,7 @@ jobs:
 
       - name: Update staging values with chainspec SHA-256
         if: steps.specsha.outputs.staging_sha
-        uses: fjogeleit/yaml-update-action@v0.13.2
+        uses: fjogeleit/yaml-update-action@v0.16.1
         with:
           valueFile: 'Charts/fennel-node/values-staging.yaml'
           propertyPath: 'node.customChainspecSha256'
@@ -1320,7 +1320,7 @@ jobs:
 
       - name: Update staging values with release tag (for tagged releases)
         if: startsWith(github.ref, 'refs/tags/')
-        uses: fjogeleit/yaml-update-action@v0.13.2
+        uses: fjogeleit/yaml-update-action@v0.16.1
         with:
           valueFile: 'Charts/fennel-node/values-staging.yaml'
           propertyPath: 'releaseTag'
