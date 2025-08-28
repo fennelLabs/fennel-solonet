@@ -727,11 +727,7 @@ jobs:
             - Bootnode 1: $BOOTNODE1_PEER_ID
             - Bootnode 2: $BOOTNODE2_PEER_ID"
             
-            # Fetch latest main and rebase our changes on top
-            git fetch origin main
-            git rebase origin/main
-            
-            # Push the changes back to the repository (push current HEAD to main branch)
+            # Push the changes back to the repository
             git push origin HEAD:main
             
             echo "✅ Development chainspecs committed and pushed to repository"
@@ -869,11 +865,7 @@ jobs:
             - Bootnode 1: $BOOTNODE1_PEER_ID
             - Bootnode 2: $BOOTNODE2_PEER_ID"
             
-            # Fetch latest main and rebase our changes on top
-            git fetch origin main
-            git rebase origin/main
-            
-            # Push the changes back to the repository (push current HEAD to main branch)
+            # Push the changes back to the repository
             git push origin HEAD:main
             
             echo "✅ Staging chainspecs committed and pushed to repository"
@@ -1066,11 +1058,7 @@ jobs:
             - Real validator and bootnode keys managed via HashiCorp Vault
             - Production deployment uses offline-generated keys"
             
-            # Fetch latest main and rebase our changes on top
-            git fetch origin main
-            git rebase origin/main
-            
-            # Push the changes back to the repository (push current HEAD to main branch)
+            # Push the changes back to the repository
             git push origin HEAD:main
             
             echo "✅ Production chainspecs committed and pushed to repository"
