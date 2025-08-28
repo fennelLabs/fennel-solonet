@@ -667,9 +667,18 @@ jobs:
           EXTERNAL_BOOTNODES="$EXTERNAL_BOOTNODES_JSON"
           echo "📋 Using external-only bootnode architecture:"
           
-          # Only update if there are changes (idempotent)
+          # Only update if there are actual changes needed (idempotent)
           CURRENT_BOOTNODES=$(jq -c '.bootNodes // []' "$SPEC")
-          if [ "$CURRENT_BOOTNODES" != "$EXTERNAL_BOOTNODES" ]; then
+          CURRENT_PROTOCOL=$(jq -r '.protocolId // ""' "$SPEC")
+          CURRENT_SS58=$(jq -r '.properties.ss58Format // ""' "$SPEC")
+          CURRENT_DECIMALS=$(jq -r '.properties.tokenDecimals // ""' "$SPEC")
+          CURRENT_SYMBOL=$(jq -r '.properties.tokenSymbol // ""' "$SPEC")
+          
+          if [ "$CURRENT_BOOTNODES" != "$EXTERNAL_BOOTNODES" ] || \
+             [ "$CURRENT_PROTOCOL" != "fenn" ] || \
+             [ "$CURRENT_SS58" != "42" ] || \
+             [ "$CURRENT_DECIMALS" != "12" ] || \
+             [ "$CURRENT_SYMBOL" != "FNL" ]; then
             echo "📝 Updating bootNodes in ${TARGET} chain spec with peer IDs and chain metadata..."
             jq --argjson arr "$EXTERNAL_BOOTNODES" \
                --arg ss58 "42" \
@@ -800,9 +809,18 @@ jobs:
           EXTERNAL_BOOTNODES="$EXTERNAL_BOOTNODES_JSON"
           echo "📋 Using external-only bootnode architecture:"
           
-          # Only update if there are changes (idempotent)
+          # Only update if there are actual changes needed (idempotent)
           CURRENT_BOOTNODES=$(jq -c '.bootNodes // []' "$SPEC")
-          if [ "$CURRENT_BOOTNODES" != "$EXTERNAL_BOOTNODES" ]; then
+          CURRENT_PROTOCOL=$(jq -r '.protocolId // ""' "$SPEC")
+          CURRENT_SS58=$(jq -r '.properties.ss58Format // ""' "$SPEC")
+          CURRENT_DECIMALS=$(jq -r '.properties.tokenDecimals // ""' "$SPEC")
+          CURRENT_SYMBOL=$(jq -r '.properties.tokenSymbol // ""' "$SPEC")
+          
+          if [ "$CURRENT_BOOTNODES" != "$EXTERNAL_BOOTNODES" ] || \
+             [ "$CURRENT_PROTOCOL" != "fenn" ] || \
+             [ "$CURRENT_SS58" != "42" ] || \
+             [ "$CURRENT_DECIMALS" != "12" ] || \
+             [ "$CURRENT_SYMBOL" != "FNL" ]; then
             echo "📝 Updating bootNodes in ${TARGET} chain spec with peer IDs and chain metadata..."
             jq --argjson arr "$EXTERNAL_BOOTNODES" \
                --arg ss58 "42" \
