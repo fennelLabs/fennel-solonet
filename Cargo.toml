@@ -72,7 +72,7 @@ pallet-sudo = { version = "40.0.0", default-features = false }
 pallet-timestamp = { version = "39.0.0", default-features = false }
 pallet-transaction-payment-rpc-runtime-api = { version = "40.0.0", default-features = false }
 scale-info = { version = "2.11.6", default-features = false }
-serde_json = { version = "1.0.132", default-features = false }
+serde_json = { version = "1.0.143", default-features = false }
 sp-consensus-grandpa = { version = "23.1.0", default-features = false }
 sp-offchain = { version = "36.0.0", default-features = false }
 sp-session = { version = "38.1.0", default-features = false }
