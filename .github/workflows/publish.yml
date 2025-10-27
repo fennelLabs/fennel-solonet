@@ -1148,7 +1148,7 @@ jobs:
           echo "✅ All chainspecs verified successfully"
 
       - name: Upload chain specs as artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: fennel-chainspecs
           path: |
@@ -1216,13 +1216,13 @@ jobs:
           echo "Created:   $(date -u +\"%Y-%m-%dT%H:%M:%SZ\")" >> ./artifacts/image-info.txt
           
       - name: Upload Docker image info artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: fennel-node-image-info
           path: ./artifacts/image-info.txt
 
       - name: Upload node binary artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: fennel-node-binary
           path: |
@@ -1474,7 +1474,7 @@ jobs:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
 
       - name: Upload Helm chart artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: fennel-helm-chart
           path: release/*.tgz
